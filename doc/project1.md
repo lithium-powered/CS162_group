@@ -166,7 +166,9 @@ We are geniuses.
 
 # Final Questions
 
-1. Consider the following scenario: Thread A has priority 3, Thread B has priority 1, and Thread C has priority 2. C has not been placed on the ready queue yet. B currently has Lock 1, which A needs. A little while later, C joins the ready queue.
+### Question 1
+
+Consider the following scenario: Thread A has priority 3, Thread B has priority 1, and Thread C has priority 2. C has not been placed on the ready queue yet. B currently has Lock 1, which A needs. A little while later, C joins the ready queue.
 
 Expected behavior: A donates its priority value to B, so B now has a priority of 3.  Now, C has joined the ready queue with a priority value of 2. B has the higher priority (an effective priority of 3), so B runs and then frees Lock 1. A has the highest priority value now, so A takes Lock 1 and runs. Then, finally, C runs.
 
@@ -174,4 +176,20 @@ Behavior with bug: A donates its priority value to B, so B now has a priority of
 
 Test code: Let thread B have an atomic function where it releases the lock and prints out that the lock has been released. Let thread C have a print statement anywhere in its run time. If there was no bug, B would always release its lock and print out a notice, then C would print something. However, if the bug did exist, after A blocks, we would start running C and C’s would print before B does.
 
-2. 
+### Question 2
+
+timer ticks | R(A) | R(B) | R(C) | P(A) | P(B) | P(C) | thread to run
+------------|------|------|------|------|------|------|--------------
+ 0          |0     |   0  |    0 |    63|    61|    59|A
+ 4          |4     |   4  |    4 |    62|    60|    58|A
+ 8          |8     |   8  |    8 |    61|    59|    57|A
+12          | 12   |   12 |   12 |    60|    58|    56|A
+16          | 16   |   16 |   16 |    59|    57|    55|A
+20          | 20   |   20 |   20 |    58|    56|    54|A
+24          | 24   |   24 |   24 |    57|    55|    53|A
+28          | 28   |   28 |   28 |    56|    54|    52|A
+32          | 32   |   32 |   32 |    55|    53|    51|A
+36          | 36   |   36 |   36 |    54|    52|    50|A
+
+### Question 3
+No
