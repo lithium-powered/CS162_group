@@ -118,51 +118,59 @@ List of all potential concurrent accesses to shared resources:
 
 - Having pointers to donors instead of just saving int64_t values simplifies the case if a thread’s donor priority value changes. The reordering of the priority value will be handled when the linked list is resorted.
 
+-By putting the code for the thread selection based on priority inside or close to the scheduler as possible, we avoid having to duplicate code for different sync methods.
 
 
 ## Task 3: Multi-level Feedback Queue Scheduler
 
 ### 1) Data Structures and Functions
 
-Make a list (array) of 63 priority queues, where each priority queue is a linked list holding elements of that priority value, where each node contains as its value a struct mlfqs_list_elem. This list element contains a thread. The class shares the global class variable int load_avg and ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables int recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
+Make a list (array) of 63 priority queues, where each priority queue is a linked list holding elements of that priority value, where each node contains as its value a struct mlfqs_list_elem. This list element contains a thread. The class shares the global class variables float load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
 
 ```
 struct mlfqs_list_elem
 {
 	struct thread *thread;
+	float priority;
 }
 ```
 
-Every 4 ticks, each thread calls update on itself. IT updates its priority value using the corresponding variables and moves itself into a different queue if its priority value has changed. Otherwise it stays put.
+Every 4 ticks, the list of queues updates itself. For each queue stored in the array, it iterates through that queue?s threads and updates the priority value of each thread. If a thread?s priority value has changed, the queue moves that thread to a different linked list.
 
 ```
-void update(array)
-{
-	for i in range(0, array.length){
-	for elem in array[i]{
-			if recalculate != queue
-		}
-	}
+void update(array){
+//iterate over threads in the array and update each with the given MLFQS formulas
 }
 ```
 
-Tiebreaks are handled by always taking the first thread in the queue (take from the head).
+```
+void move(thread, queue){
+//removes thread from its old queue and moves it to the new queue
+}
+```
 
 
 ### 2) Algorithms
 
- * Choosing the next thread to run - We go down the array of priority queues starting with the highest priority and choose the first queue that is not empty. Then it updates the ready_threads with those in that priority queue and computes the new load_avg. The first thread to be run will be the first element of the queue.
+The ready queue is essentially implemented as an array (hash) of queues (where the queues are implemented as linked lists) where each queue stores asdf and tasks? priority values are updated dynamically using the MLFQS formulas. Every 4 ticks, the priority values for all threads are re-calculated. To choose the next thread to run, go down the array of priority queues starting with the highest priority and choose the first queue that is not empty. Then update the ready_threads with the threads in that priority queue and compute the new load_avg. The first thread to be run will be the first element of the queue. Ties are broken by always taking whichever is first in the queue (at the head).
 
-TO DO - ANNIE WILL WRITE THIS AFTER PRACTICE (10pm)
 
 
 ### 3) Synchronization
 
-TO DO - ANNIE WILL WRITE THIS AFTER PRACTICE  (10pm)
+List of all potential concurrent accesses to shared resources:
+-The list of priority queues - The list of priority queues is shared by all threads. For that reason, the update function is purposefully implemented so that the list itself iterates through all queues and all threads within queues and updates each thread (instead of threads updating themselves.) Forcing the list to update threads one at a time prevents threads from racing and modifying the same queues, therefore ensuring data integrity.
+
+-The class variables - The class variables (the ready thread list and the load average) are shared by all threads because all threads add to the same ready thread list and use the same load average to calculate their priority values. For that reason, those variables should be updated only before or after the priority queue list is updating itself. Enforcing this invariant along with the invariant that threads do not update themselves or class variables ensures integrity of data.
 
 ### 4) Rationale
 
-We are geniuses.
+- Using an array of queues allows us to hash the queues for easy retrieval (each queue's hash value is its priority value). Elements in the hash table can be accessed in O(1) time and in this case, the hash table never has to be resized, as it will never exceed 64 entries in length.
+
+- Storing key values like the load_avg as class variables makes it easy to access them and ensures that there is only one true value used for calculations (that is, there aren't multiple load_avgs floating around and when we update the load average, we only need to update the one global variable load_avg that all the threads rely on).
+
+- In the update function, making the list of queues iterate through all threads and update each in turn prevents race conditions by ensuring one central authority is doing all updates and preventing multiple threads from updating at the same time. This makes sure there are no race conditions that affect the queues (since linked lists are not thread-safe) and ensure only one authority (the linked list of queues) is accessing the list at one time, so the integrity of the queues is preserved.
+
 
 # Final Questions
 
