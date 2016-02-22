@@ -125,7 +125,7 @@ List of all potential concurrent accesses to shared resources:
 
 ### 1) Data Structures and Functions
 
-Make a list (array) of 63 priority queues, where each priority queue is a linked list holding elements of that priority value, where each node contains as its value a struct mlfqs_list_elem. This list element contains a thread. The class shares the global class variables float load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
+Make a list (array) of 64 priority queues, where each priority queue is a linked list holding elements of that priority value, where each node contains as its value a struct mlfqs_list_elem. This list element contains a thread. The class shares the global class variables float(fixed point real numbers) load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
 
 ```
 struct mlfqs_list_elem
@@ -135,10 +135,10 @@ struct mlfqs_list_elem
 }
 ```
 
-Every 4 ticks, the list of queues updates itself. For each queue stored in the array, it iterates through that queue?s threads and updates the priority value of each thread. If a thread?s priority value has changed, the queue moves that thread to a different linked list.
+Every 4 ticks, each thread updates itself. For each queue stored in the array, it iterates through that queue's threads and updates the priority value of each thread. If a thread's priority value has changed, the thread moves to a different linked list.
 
 ```
-void update(array){
+void update(thread){
 //iterate over threads in the array and update each with the given MLFQS formulas
 }
 ```
