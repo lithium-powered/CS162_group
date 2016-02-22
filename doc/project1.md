@@ -189,15 +189,16 @@ Test code: Let thread B have an atomic function where it releases the lock and p
 timer ticks | R(A) | R(B) | R(C) | P(A) | P(B) | P(C) | thread to run
 ------------|------|------|------|------|------|------|--------------
  0          |0     |   0  |    0 |    63|    61|    59|A
- 4          |4     |   4  |    4 |    62|    60|    58|A
- 8          |8     |   8  |    8 |    61|    59|    57|A
-12          | 12   |   12 |   12 |    60|    58|    56|A
-16          | 16   |   16 |   16 |    59|    57|    55|A
-20          | 20   |   20 |   20 |    58|    56|    54|A
-24          | 24   |   24 |   24 |    57|    55|    53|A
-28          | 28   |   28 |   28 |    56|    54|    52|A
-32          | 32   |   32 |   32 |    55|    53|    51|A
-36          | 36   |   36 |   36 |    54|    52|    50|A
+ 4          |4     |   0  |    0 |    62|    61|    59|A
+ 8          |8     |   0  |    0 |    61|    61|    59|A
+12          | 12   |   0 |   0 |    60|    61|    59|A
+16          | 12   |   4 |   0 |    60|    60|    59|B
+20          | 12   |   8 |   0 |    60|    59|    59|B
+24          | 16   |   8 |   0 |    59|    59|    59|A
+28          | 20   |   8 |   0 |    58|    59|    59|A
+32          | 20   |   12 |   0 |    58|    58|    59|B
+36          | 20   |   12 |   4 |    58|    58|    58|C
+
 
 ### Question 3
-No
+Yes, we broke ties by the following rule: If there is a tie between multiple threads, give preference to the thread that is already running. If none of the tied threads are currently running, give preference to the ties by alphabetical order.
