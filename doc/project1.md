@@ -14,27 +14,40 @@ Design Document for Project 1: Threads
 
 ### 1) Data Structures and Functions
 
+Global Variable
 ```
 struct list sleep_list;
 list_init(&sleep_list);
-
-struct sema_sleep_time{
-	struct semaphore *sema;
-	int64_t sleep time;
-}
+```
+Create a list that holds threads that are asleep.
 
 ```
-Creates a struct that holds a semaphore and how long the thread that created the semaphore should sleep.
-
-```
-struct sema_list_elem
+struct sleeping_thread_list_elem
 {
-	struct semaphore *sema; //Semaphore value stored in this node
+	struct thread *thread; //Thread value stored in this node
 	struct list_elem elem; //Points to prev/next elem in list
 }
 
 ```
-Need a linked-list of semaphores (using provided linked list library)
+Need a linked-list of sleeping threads (using provided linked list library)
+
+
+Add to thread struct:
+```
+struct semaphore *sema_sleep;
+int64_t sleep_time;
+```
+* Add these two fields into the thread struct. 
+* sema_sleep should be created when the thread calls timer_sleep() and then sema_sleep should be added to sleep_list as a linked list object.
+
+New function:
+```
+void sleep_list_crawler(){
+	
+}
+```
+Function that looks through sleep_list and ups semaphores of threads that should be woken up.
+
 
 ### 2) Algorithms
 
