@@ -14,18 +14,21 @@ Design Document for Project 1: Threads
 
 ### 1) Data Structures and Functions
 
-Global Variable
+Global Variable 
 ```
 struct list sleep_list;
+
+#Make sleep list using list_init
 list_init(&sleep_list);
 ```
+
 Create a list that holds threads that are asleep.
 
 ```
 struct sleeping_thread_list_elem
 {
 	struct thread *thread; //Thread value stored in this node
-	struct list_elem elem; //Points to prev/next elem in list
+	struct list_elem elem; //Points to prev and next elem in list
 }
 
 ```
@@ -34,11 +37,13 @@ Need a linked-list of sleeping threads (using provided linked list library)
 
 Add to thread struct:
 ```
-struct semaphore *sema_sleep;
+struct semaphore *sema_sleep; // initialize with value 0 
+
 int64_t sleep_time;
+
 ```
 * Add these two fields into the thread struct. 
-* sema_sleep should be created when the thread calls timer_sleep() and then sema_sleep should be added to sleep_list as a linked list object.
+* sema_sleep should be created when the thread calls timer_sleep() and then the thread should be added to sleep_list as a linked list object.
 
 New function:
 ```
@@ -51,7 +56,20 @@ Function that looks through sleep_list and ups semaphores of threads that should
 
 ### 2) Algorithms
 
-When timer_sleep is called, the thread creates a sema_sleep_time object with a semaphore valued at 0 and int64_t value of how long the thread should sleep + current tick time. It then waits for to down the newly created semaphore. The sema_sleep_time object is added to a global linked list, sleep_list. Every time timer_tick is called, we go through the semaphores in the linked list and then up them if enough tick time has passed (If the int64_t value is equal to the current timer_ticks()). 
+When timer_sleep is called, the thread creates a sema_sleep_time object with a semaphore valued at 0 and int64_t value of how long the thread should sleep + current tick time. It then waits to down the newly created semaphore. The thread is added to a global linked list, sleep_list, which will be sorted upon insertion of elements. Every time timer_tick is called, we go through the semaphores in the linked list and then up them if enough tick time has passed (If the int64_t value is equal to the current timer_ticks()). 
+
+- each thread has value 0 for its semaphore
+- timer_sleep called 
+	 * sema_down ie p() called on semaphore -> "waits for positive value then decrements the semophore"
+	 * sema_down must reacquire lock
+	 * this unlocks the lock, adds thread to sleep queue with the sleep time initialized and puts thread to sleep
+	 * when added to the sleep queue, it will be added in insertion order -> this must occur in isolation so that two threads cant be added at the same time and the queue cant be corrupted (maybe use compare and swap)
+- another thread will start running ???
+- for every timer tick is called, we compare the value of timer ticks (mod 10000) to the sleep_time of each thread (since in order list, means we should only have to go through the first few items)  
+- for the threads where current ticks >= timer_sleep, notify them to wake up and take them off the sleep queue
+	* notification done with some signal with calls sema_up
+
+
 
 ### 3) Synchronization
 
