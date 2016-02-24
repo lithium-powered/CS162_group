@@ -26,6 +26,13 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+/* Added 2/24 */
+struct thread_list_elem
+  {
+    struct thread *thread; //Thread value stored in this node
+    struct list_elem elem; //Points to prev and next elem in list
+  };
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -101,13 +108,7 @@ struct thread
     struct thread *donee;
     struct thread_list_elem donor_list;
     int64_t effective_priority;
-  };
 
-struct thread_list_elem
-  {
-    struct thread *thread; //Thread value stored in this node
-    struct list_elem elem; //Points to prev and next elem in list
-  };
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
