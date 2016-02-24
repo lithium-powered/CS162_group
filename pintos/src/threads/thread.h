@@ -101,7 +101,13 @@ struct thread
     struct thread *donee;
     struct thread_list_elem donor_list;
     int64_t effective_priority;
+  };
 
+struct thread_list_elem
+  {
+    struct thread *thread; //Thread value stored in this node
+    struct list_elem elem; //Points to prev and next elem in list
+  };
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
