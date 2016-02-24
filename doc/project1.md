@@ -56,18 +56,18 @@ Function that looks through sleep_list and ups semaphores of threads that should
 
 ### 2) Algorithms
 
-When timer_sleep is called, the thread creates a sema_sleep_time object with a semaphore valued at 0 and int64_t value of how long the thread should sleep + current tick time. It then waits to down the newly created semaphore. The thread is added to a global linked list, sleep_list, which will be sorted upon insertion of elements. Every time timer_tick is called, we go through the semaphores in the linked list and then up them if enough tick time has passed (If the int64_t value is equal to the current timer_ticks()). 
-
-- each thread has value 0 for its semaphore
-- timer_sleep called 
-	 * sema_down ie p() called on semaphore -> "waits for positive value then decrements the semophore"
-	 * this unlocks the lock, adds thread to sleep queue with the sleep time initialized and puts thread to sleep
-	 * when added to the sleep queue, it will be added in insertion order -> this must occur in isolation so that two threads cant be added at the same time and the queue cant be corrupted (maybe use compare and swap)
-- another thread will start running ???
-- for every timer tick is called, we compare the value of timer ticks (mod 10000) to the sleep_time of each thread (since in order list, means we should only have to go through the first few items)  
-- for the threads where current ticks >= timer_sleep, notify them to wake up and take them off the sleep queue
-	* notification done with some signal with calls sema_up
-- Original sleep thread must reacquire lock when awoken
+- Each thread has value 0 initialized for its semaphore
+- Next, timer_sleep is called 
+	 * Sema_down (ie p() function) called on semaphore which now "waits for positive value then decrements the semophore"
+	 * Behind the scenes this disables interrupts, releases the lock, adds the thread to sleep queue with the sleep time being sleep time + current time, and puts thread to sleep
+	 * When added to the sleep queue, it will be added in sorted order using insertion sort 
+	 **	This must occur in an atomic process so that two threads can't be added at the same time and the queue cant be corrupted
+- Another thread should be notified to start running
+- For every timer tick call, we compare the value of timer ticks (modulo number since timer cant go to infinity) to the sleep_time of each thread 
+	* Since list is in order, means we should only have to go to the first item 
+	* Other threads that meet the wake time criteria will be woken when this one completes running 
+	* Notification done with some signal that should be called in sema_up()
+- Original sleep thread must reacquire lock when awoken - Not sure if included in code already must check
 
 
 

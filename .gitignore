@@ -1,6 +1,1 @@
-*.o
-*.pyc
-*.swp
-*~
-.DS_Store
-pintos/**/build
+pintos/.DS_Store
