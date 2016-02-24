@@ -95,6 +95,13 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    /* Added 2/24*/
+    struct semaphore *sema_sleep; // initialize with value 0 
+    int64_t sleep_time;
+    struct thread *donee;
+    struct thread_list_elem donor_list;
+    int64_t effective_priority;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
