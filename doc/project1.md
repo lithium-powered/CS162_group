@@ -12,6 +12,14 @@ Design Document for Project 1: Threads
 
 ## Task 1: Timer Sleep
 
+### Progress and To-Do
+
+To-Do:
+* Add Structures to Threads - Semaphore set to 0 and Sleep Time = 0
+* Add Sleep List as Global Variable? Find a way to do this or create it
+* Add Function that sorts threads in sleep list upon addition
+
+
 ### 1) Data Structures and Functions
 
 Global Variable 
