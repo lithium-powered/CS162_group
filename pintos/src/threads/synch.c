@@ -336,3 +336,13 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
 }
+
+/******* Added Code*******/
+
+//Should only be called when lock->holder != NULL
+void donate (struct lock *lock, int priority){
+  ASSERT (lock->holder != NULL);
+
+  thread_current()->donee = lock->holder;
+  
+}
