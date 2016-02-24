@@ -106,11 +106,13 @@ int64_t effective_priority;
 * add a variable struct `thread *donee`, which points to the thread that the current thread has currently donated to (points to null if thread does not have donee).
 * `effective_priority` holds the priority that should be used for this thread (max of original and donated priority). Use `get_effective_priority` to set this variable.
 
+
 ```
 int64_t get_effective_priority(struct thread *thread){
 }
 ```
 Function which should sort return the effective priority of a thread by looking at the thread's original and all donated priority and returning the highest value.
+
 
 ```
 void donate(lock *lock, int64_t priority){
@@ -124,6 +126,7 @@ void sortDonations(struct thread *donee){
 }
 ```
 We sort the stack of the donor_list for each thread recursively based on their priority values, starting from thread which held the lock in the donate function.
+(Is is possible to use a general compare function that sorts based on efficient_priority? Can be used for both sorting donations and ready_queue.)
 
 To obtain the holder of a current lock, use `struct thread *holder`
 in struct lock
@@ -133,15 +136,15 @@ in struct lock
 
 * Choosing the next thread to run - The ready queue should be a linked list implementation of a priority queue, where the linked list of threads is sorted by priority (in descending order). The next thread to run should always be the thread with the highest priority.
 
-* Acquiring a lock - When a thread tries to acquire a lock, if a the lock is held by another thread, we call the donate function on that lock. It would then add the priority of the calling thread to the thread that holds this lock. We would then sort the donor_list of each thread recursively to make sure the highest priority is at the top of the stack. Once the thread which wants to acquire the lock returns, we go to our donee and remove ourselves from their donor_list, reset our donee variable to 0, and recursively resort the affected donor_list in threads.
+* Acquiring a lock - When a thread tries to acquire a lock, if the lock is held by another thread, we call the donate function on that lock. It would then add the priority of the calling thread to the thread that holds this lock. We would then go through `donor_list` of each thread recursively to get the efficient priority. Once the thread which wants to acquire the lock returns, we go to our donee and remove ourselves from their donor_list, reset our donee variable to `NULL`, and recursively resort the affected donor_list in threads.
 
 * Releasing a lock - Keeping the same functionality, would send interrupt to threads that are waiting for the released lock.
 
-* Computing the effective priority - Each thread has a list (that functions as a stack) of priority_donation structs that keeps track of the history of priority values (original and donated) that the thread has. The last element of the list always contains the original priority value of the thread. Calling the thread_get_priority() function should yield the priority value of the top-most element in that thread’s priority linked list.
+* Computing the effective priority - Each thread has a list of threads that have donated to the thread that keeps track of the history of priority values that the thread has. Calling `get_effective_priority()` would return the effective priority of a thread by looking at the thread's original and all donated priority and returning the highest value.
 
 * Priority scheduling for semaphores, locks, condition variables - All priority scheduling will be based on popping off the first element of the ordered ready_list. All threads waiting for semaphores, locks, or condition variables will be popped back onto the ready_list and have the ready_list reordered when schedule() chooses a new thread to run.
 
-* Changing thread’s priority - to change a thread’s priority, set that thread’s priority value to its new priority. Then, for the donee of that thread, recursively re-sort the priority linked list of the donee and all of the donee’s descendants (where a descendant is defined as a donee of a donee of a donee of a...etc of that thread).
+* Changing thread’s priority - to change a thread’s priority, set that thread’s priority value to its new priority. Then, for the donee of that thread, recursively call `get_effective_priority()` to get the priority of the donee and all of the donee’s descendants (where a descendant is defined as a donee of a donee of a donee of a...etc of that thread).
 			
 
 
