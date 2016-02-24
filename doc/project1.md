@@ -33,7 +33,7 @@ list_init(&sleep_list);
 Create a list that holds threads that are asleep.
 
 ```
-struct sleeping_thread_list_elem
+struct thread_list_elem
 {
 	struct thread *thread; //Thread value stored in this node
 	struct list_elem elem; //Points to prev and next elem in list
@@ -96,30 +96,33 @@ We’ve considered using a linked list holding numerical values and decrementing
 
 ### 1) Data Structures and Functions
 
-To the thread struct, add a donor `linked list (donor_list)` that functions as a stack (always pop/push at the head). Each node in the linked list stores a `priority_donation struct`. This linked list stores all donated/original priority values of the thread. The element at the head is the current priority:
+Add to thread struct:
+```
+struct thread *donee;
+struct thread_list_elem donor_list;
+int64_t effective_priority;
+```
+* add a donor linked list `donor_list`, each node in the linked list stores a `struct thread *donor`. This linked list stores all donated priority values of the thread. The effective priority of the thread is stored in `effective_priority`.
+* add a variable struct `thread *donee`, which points to the thread that the current thread has currently donated to (points to null if thread does not have donee).
+* `effective_priority` holds the priority that should be used for this thread (max of original and donated priority). Use `get_effective_priority` to set this variable.
 
 ```
-struct priority_donation_list_elem
-{
-	struct thread *donor; // The thread that donated the value
-	struct list_elem elem;
+int64_t get_effective_priority(struct thread *thread){
 }
 ```
-
-To the thread struct, add an attribute struct `thread *donee`, which points to the thread that the current thread has currently donated to (points to null if thread does not have donee);
+Function which should sort return the effective priority of a thread by looking at the thread's original and all donated priority and returning the highest value.
 
 ```
 void donate(lock *lock, int64_t priority){
 }
 ```
+The thread that calls donate is added to the donor_list of the thread which holds lock and the envoking thread will donate its priority to the thread which holds the lock. The `struct thread *donee` variable of the envoking thread is set to point to the thread which holds the lock.
 
-The thread that calls donate is added to the donor_list of the thread which holds lock. 
 
 ```
 void sortDonations(struct thread *donee){
 }
 ```
-
 We sort the stack of the donor_list for each thread recursively based on their priority values, starting from thread which held the lock in the donate function.
 
 To obtain the holder of a current lock, use `struct thread *holder`
