@@ -53,6 +53,7 @@ static long long user_ticks;    /* # of timer ticks in user programs. */
 /* Scheduling. */
 #define TIME_SLICE 4            /* # of timer ticks to give each thread. */
 static unsigned thread_ticks;   /* # of timer ticks since last yield. */
+static fixed_point_t load_avg;  /* Load Average of cpu, 0 on system boot*/
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
@@ -89,6 +90,8 @@ thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
+  load_avg = fix_int(0);
+
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
@@ -120,7 +123,7 @@ thread_start (void)
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
-thread_tick (void) 
+thread_tick (void) //TODO has to recalculate load avg
 {
   struct thread *t = thread_current ();
 
@@ -340,16 +343,17 @@ thread_set_priority (int new_priority)
 
 /* Returns the current thread's priority. */
 int
-thread_get_priority (void) 
+thread_get_priority (void) //todo
 {
   return thread_current ()->priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) 
+thread_set_nice (int nice UNUSED) //todo
 {
   /* Not yet implemented. */
+
 }
 
 /* Returns the current thread's nice value. */
@@ -357,7 +361,7 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return thread_current ()->nice;
 }
 
 /* Returns 100 times the system load average. */
@@ -365,7 +369,8 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return fix_round(fix_scale(load_avg,100));
+  //return 0;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -373,9 +378,10 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return 0;
+  return fix_round(fix_scale(thread_current ()->recent_cpu,100));
+  //return 0;
 }
-
+
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by

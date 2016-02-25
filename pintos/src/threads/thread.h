@@ -109,6 +109,10 @@ struct thread
     struct list donor_list;
     int64_t effective_priority;
 
+    /* Added 2/24 Pt3 */
+    int nice;
+    fixed_point_t recent_cpu;
+    
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
