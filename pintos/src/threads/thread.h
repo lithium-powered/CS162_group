@@ -107,7 +107,11 @@ struct thread
     int64_t sleep_time;
     struct thread *donee;
     struct list donor_list;
+<<<<<<< HEAD
     int effective_priority;
+=======
+    int64_t effective_priority;
+>>>>>>> 8f5839eaefef332a9748fd7e036d5b1078bfdb99
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
