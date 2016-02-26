@@ -182,6 +182,8 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  //Added
+  list_init(&(t->donor_list));
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -464,6 +466,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  /* Added */
+  t->effective_priority = priority;
+
+  /*********/
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -493,6 +500,10 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
+    /* Added */
+    list_sort(&(ready_list), &compare_effective_priority, NULL);
+    /*********/
+
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
@@ -578,6 +589,34 @@ allocate_tid (void)
 
   return tid;
 }
+
+//Has to be atomic
+void set_effective_priority(struct thread *thread){
+  struct list_elem *elem = list_max(&(thread->donor_list), &compare_effective_priority, NULL);
+  struct thread_list_elem *thread_elem = list_entry (elem, 
+    struct thread_list_elem, elem);
+  int highest_donated_priority = thread_elem->thread->effective_priority;
+  if (highest_donated_priority > thread->priority){
+    thread->effective_priority = highest_donated_priority;
+  } else {
+    thread->effective_priority = thread->priority;
+  }
+}
+
+int get_effective_priority(struct thread *thread){
+  return thread->effective_priority;
+}
+
+bool compare_effective_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED){
+  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
+    struct thread_list_elem, elem);
+  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
+    struct thread_list_elem, elem);
+  return thread_elem_A->thread->effective_priority < thread_elem_B->thread->effective_priority; 
+}
+
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

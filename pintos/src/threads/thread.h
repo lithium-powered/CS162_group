@@ -107,7 +107,7 @@ struct thread
     int64_t sleep_time;
     struct thread *donee;
     struct list donor_list;
-    int64_t effective_priority;
+    int effective_priority;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -153,5 +153,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+/* Added */
+void set_effective_priority(struct thread *);
+int get_effective_priority(struct thread *);
+bool compare_effective_priority(const struct list_elem *, 
+  const struct list_elem *, void *aux);
 
 #endif /* threads/thread.h */

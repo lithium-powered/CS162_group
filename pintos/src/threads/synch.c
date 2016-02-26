@@ -344,5 +344,7 @@ void donate (struct lock *lock, int priority){
   ASSERT (lock->holder != NULL);
 
   thread_current()->donee = lock->holder;
+  struct thread_list_elem donor = {thread_current(), {NULL,NULL}};
+  list_push_front((&lock->holder->donor_list), &donor.elem);
   
 }
