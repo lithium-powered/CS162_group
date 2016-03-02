@@ -24,6 +24,10 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* Nurr added List of processes in THREAD_NOTREADY state, that is, processes
+that are sleeping waiting for ticks to pass. */
+static struct list sleep_list;
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -89,8 +93,10 @@ thread_init (void)
 {
   ASSERT (intr_get_level () == INTR_OFF);
 
+  //init list for sleep list in thread_init
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&sleep_list);
   list_init (&all_list);
 
   /* Set up a thread structure for the running thread. */
@@ -137,6 +143,8 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+
+  //Check to see if enough ticks have passed to place thread on ready
 }
 
 /* Prints thread statistics. */
@@ -301,15 +309,27 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
+  /*Finding a way to add the yielded thread to the sleep list
+    If time has not come up and if time is 0, add to readylist */
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+
+  //Adding check for current time 
+  if (cur.sleep_time < timer_ticks ()){
+    //Add to sleep thread
+    list_insert_ordered(&sleep_list, &cur-> elem, FUNCTION, AUX)
+    cur->status = THREAD_BLOCKED;
+  }
+  //Changed this if to an else
+  else (cur != idle_thread){
     list_push_back (&ready_list, &cur->elem);
-  cur->status = THREAD_READY;
+    cur->status = THREAD_READY;
+
+  }
   schedule ();
   intr_set_level (old_level);
 }

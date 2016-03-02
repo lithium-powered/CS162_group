@@ -14,10 +14,36 @@ Design Document for Project 1: Threads
 
 ### Progress and To-Do
 
+Progress:
+* Added static struct list elem to init.c at 120
+* Made note on Thread.H line 31 is potential place for static word
+* Tell li his var in thread should probably be a list and not a list elem
+* Added to do note in thread.c threadtick  on line 141
+* line 95 in timer.c
+	//Instead of this while loop, change so that thread's sleep count is initialized
+  	//Call yield or potentially other function -> Checks that timer has a number and puts it into the list
+  	//Change ticks so that it checks for new threads to throw on ready
+
+* Once enough ticks have passed, call list_push_back (&ready_list, &t->elem); thread.c 242
+
+* when timer_sleep is called, add the thread to the sleep thread
+* added sleep thread to thread.c 27 where ready thread is declared
+* commented out while look in timer_sleep to replace with the comments in that section
+* removed init in init.c and added it to thread_init where ready threads are init too (93 thread.c) 
+* Look at thread_start and how it is initialized with a semaphore, do that for every thread started somehow
+* add sleep_time int in the thread_create? or init_thread (probably init_thread but not going to make any changes to it)
+* In timer.c added sleep_time init right after asserting interrupts are on
+* yielded thread so -> yield MUST add it to the sleep list 
+* In thread.c line 314 adding funciton where check for thread sleep time = if not up yet, add to sleep_list else add to ready list
+* CHECK INTERRUPTS AFTER THIS NOTHING MIGHT WORK OOOOPS LOOOL T_T
+*Insert ordered takes a FUNCTION and AUX that i havent filled in on 324 of thread.c
+
 To-Do:
 * Add Structures to Threads - Semaphore set to 0 and Sleep Time = 0
 * Add Sleep List as Global Variable? Find a way to do this or create it
 * Add Function that sorts threads in sleep list upon addition
+
+
 
 
 ### 1) Data Structures and Functions
