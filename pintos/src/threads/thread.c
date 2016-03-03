@@ -134,16 +134,6 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
-bool compare_sleeptime_priority(const struct list_elem *elem_A, 
-  const struct list_elem *elem_B, void *aux UNUSED)
-{
-  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
-  struct thread_list_elem, elem);
-  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
-  struct thread_list_elem, elem);
-  return thread_elem_A->thread->sleep_time < thread_elem_B->thread->sleep_time; 
-}
-
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
@@ -632,6 +622,18 @@ allocate_tid (void)
 
   return tid;
 }
+
+/* Added */
+bool compare_sleeptime_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED)
+{
+  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
+  struct thread_list_elem, elem);
+  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
+  struct thread_list_elem, elem);
+  return thread_elem_A->thread->sleep_time < thread_elem_B->thread->sleep_time; 
+}
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

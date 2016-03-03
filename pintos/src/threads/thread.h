@@ -154,7 +154,7 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool compare_sleeptime_priority(const struct list_elem *elem_A, 
-  const struct list_elem *elem_B, void *aux UNUSED);
+bool compare_sleeptime_priority(const struct list_elem *, 
+  const struct list_elem *, void *aux);
 
 #endif /* threads/thread.h */
