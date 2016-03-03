@@ -52,6 +52,8 @@ Progress:
 * MAKE A LIST OF PLACES IT NEEDS TO NOT BE INTERRUPTED AND INCLUDE HERE
 
 * 	added semaphore to thread.c at line 45 aking static struct called sema
+*	added sleep_time declaration at 108
+*	moved list_func to thread.c so that it could be called
 
 
 

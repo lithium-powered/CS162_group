@@ -28,6 +28,9 @@ static struct list ready_list;
 that are sleeping waiting for ticks to pass. */
 static struct list sleep_list;
 
+/* Nurr added March 3 */
+static int64_t sleep_time;                
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -126,6 +129,16 @@ thread_start (void)
 
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
+}
+
+bool compare_sleeptime_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED)
+{
+  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
+  struct thread_list_elem, elem);
+  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
+  struct thread_list_elem, elem);
+  return thread_elem_A->thread->sleep_time < thread_elem_B->thread->sleep_time; 
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -324,13 +337,12 @@ thread_yield (void)
   old_level = intr_disable ();
 
   //Adding check for current time 
-  if (cur.sleep_time < timer_ticks ()){
+  if (cur->sleep_time < timer_ticks ()){
     //Add to sleep thread
-    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL)
+    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
     cur->status = THREAD_BLOCKED;
-  }
-  //Changed this if to an else
-  else (cur != idle_thread){
+  } else if (cur != idle_thread){
+    //Changed this if to an elseif
     list_push_back (&ready_list, &cur->elem);
     cur->status = THREAD_READY;
 
@@ -524,9 +536,11 @@ next_thread_to_run (void)
 static void
 sleep_to_ready (void) 
 { 
-  for (int i = 0; i < list_size(&sleep_list); i++){
-    if (list_front(&sleep_list).sleep_time < timer_ticks()){
-      list_push_back(&sleeplist, list_pop_front(&sleep_list))
+  uint32_t i;
+  for (i = 0; i < list_size(&sleep_list); i++){
+    struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
+    if (front->sleep_time < timer_ticks()){
+      list_push_back(&sleep_list, list_pop_front(&sleep_list));
     } else {
       break;
     }
