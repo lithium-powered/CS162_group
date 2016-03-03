@@ -52,6 +52,17 @@ Progress:
 * MAKE A LIST OF PLACES IT NEEDS TO NOT BE INTERRUPTED AND INCLUDE HERE
 
 * 	added semaphore to thread.c at line 45 aking static struct called sema
+* 	initialized semaphore at thread.c at line 104
+
+TALK THROUGH UNDERSTANDING
+
+current process, when timer_sleep is called, it sets sleep time, calls thread_yield which adds it to the sleep_list. scheduler always checks to move sleep_list to ready_list and scheduler chooses
+
+we said we wanted semaphores on the threads and then to down the semaphore which means it calls thread_block which currently only changes the threads value to blocked and moves it to the back of a waiting queue? and then it calls scheduler soo we want to wait till enough time has passed and then call sema_up?
+
+	if i was to change to this implementation i would have to change it so that sleep sets the time adn sema downs. and calls block, block will add it to the sleep queue, scheduler still moves and selects awoken, but when it moves it needs to call sema_up
+
+	Lets do this in a seperate branch
 
 
 
