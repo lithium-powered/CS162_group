@@ -12,10 +12,15 @@ Modified thread_tick to re-calculate priority values for all threads on every fo
 Added mlfqs_recalculate function to compute new priority value from formula.
 Added compare_priority function as the sorting function for ready_list.
 
+Recalculate load_avg and recent_cpu once per second.
+Recalculate priority every 4 seconds
 
+Implemented mlfqs_recalculate_priority
+Implemented mlfqs_recalculate_loadavg
+Implemented mlfqs_recalculate_recentcpu
 
+FIXED get/set values with proper use of fixed points.
 
 To Do
-
-Recalculate load_avg and recent_cpu once per second.
 Figure out interrupt enabling/disabling.
+thread_set_nice edge case
