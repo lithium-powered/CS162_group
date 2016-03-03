@@ -109,10 +109,10 @@ struct thread
     struct list donor_list;
     int64_t effective_priority;
 
-    /* Added 2/24 Pt3 */
+    /*Annie Part 3 instance variables*/
     int nice;
     fixed_point_t recent_cpu;
-    
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -120,6 +120,7 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
   };
 
 /* If false (default), use round-robin scheduler.

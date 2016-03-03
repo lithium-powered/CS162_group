@@ -1,4 +1,4 @@
-#include "threads/thread.h"
+#include "thread.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -44,6 +44,12 @@ struct kernel_thread_frame
     thread_func *function;      /* Function to call. */
     void *aux;                  /* Auxiliary data for function. */
   };
+
+/*Annie*/
+//static struct list mlfqs_queue
+static float load_avg;
+
+
 
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
@@ -96,6 +102,8 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
+  //list_init(&mlfqs_queue) //Annie
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -120,6 +128,22 @@ thread_start (void)
   sema_down (&idle_started);
 }
 
+
+/*Annie - Re-calculate priority value*/
+int mlfqs_recalculate(struct thread *t){
+  return 0; //TODO calculate priority value here
+
+  /*Formula is:
+priority = PRI_MAX − (recent_cpu/4) − (nice × 2)
+  */
+}
+/*Annie - Sort list based on priority value*/
+bool compare_priority(const struct list_elem *elem_A, const struct list_elem *elem_B, void *aux UNUSED){
+  struct thread_list_elem *thread_elem_A = list_entry (elem_A, struct thread_list_elem, elem);
+  struct thread_list_elem *thread_elem_B = list_entry (elem_B, struct thread_list_elem, elem);
+  return thread_elem_A->thread->priority < thread_elem_B->thread->priority; 
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 void
@@ -137,10 +161,47 @@ thread_tick (void) //TODO has to recalculate load avg
   else
     kernel_ticks++;
 
+  //Annie - If MLFQS, on every fourth tick, update priority values of each thread
+  if (thread_mlfqs && kernel_ticks%4==0){//Are we doing kernel or user program or both?
+
+    //Disable interrupts
+    intr_disable ();
+
+
+    /*Once per second, recalculate recent_cpu and load_avg - how do I know one second has passed? TODO
+    Formulas:
+    recent_cpu = (2 × load_avg)/(2 × load_avg + 1) × recent_cpu + nice
+    load_avg = (59/60) × load_avg + (1/60) × ready_threads
+    */
+
+    // Increase current thread's cpu usage by 1
+    fixed_point_t rec = thread_current()->recent_cpu;
+    fixed_point_t one = fix_int(1);
+    thread_current()->recent_cpu = fix_add (rec, one); 
+
+    //Similar to thread_foreach but only with ready_list threads
+    struct list_elem *e;
+
+    ASSERT (intr_get_level () == INTR_OFF);
+
+    for (e = list_begin (&ready_list); e != list_end (&ready_list);
+       e = list_next (e))
+    {
+      struct thread *t = list_entry (e, struct thread, allelem);
+      t->priority = mlfqs_recalculate(t);
+    }
+
+    //sort ready_list
+    list_sort(&(ready_list), &compare_priority, NULL);
+
+    //Do I need to re-enable interrupts here? TODO
+  }
+
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
 }
+
 
 /* Prints thread statistics. */
 void
@@ -338,7 +399,9 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
+  if (!thread_mlfqs){
+    thread_current ()->priority = new_priority;
+  }
 }
 
 /* Returns the current thread's priority. */
@@ -350,10 +413,10 @@ thread_get_priority (void) //todo
 
 /* Sets the current thread's nice value to NICE. */
 void
-thread_set_nice (int nice UNUSED) //todo
+thread_set_nice (int new_nice UNUSED) 
 {
   /* Not yet implemented. */
-
+  thread_current() ->nice = new_nice; //Annie
 }
 
 /* Returns the current thread's nice value. */
@@ -361,7 +424,7 @@ int
 thread_get_nice (void) 
 {
   /* Not yet implemented. */
-  return thread_current ()->nice;
+  return thread_current()->nice; //Annie
 }
 
 /* Returns 100 times the system load average. */
@@ -369,8 +432,7 @@ int
 thread_get_load_avg (void) 
 {
   /* Not yet implemented. */
-  return fix_round(fix_scale(load_avg,100));
-  //return 0;
+  return 100*load_avg; //Annie
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -378,8 +440,9 @@ int
 thread_get_recent_cpu (void) 
 {
   /* Not yet implemented. */
-  return fix_round(fix_scale(thread_current ()->recent_cpu,100));
-  //return 0;
+  fixed_point_t rec = thread_current()->recent_cpu;  //Annie
+  int rounded = fix_round(rec);
+  return 100*rounded;
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -430,7 +493,7 @@ kernel_thread (thread_func *function, void *aux)
   function (aux);       /* Execute the thread function. */
   thread_exit ();       /* If function() returns, kill the thread. */
 }
-
+
 /* Returns the running thread. */
 struct thread *
 running_thread (void) 

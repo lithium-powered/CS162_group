@@ -170,7 +170,7 @@ List of all potential concurrent accesses to shared resources:
 
 ### 1) Data Structures and Functions
 
-Make a list (array) of 64 priority queues, where each priority queue is a linked list holding elements of that priority value, where each node contains as its value a struct mlfqs_list_elem. This list element contains a thread. The class shares the global class variables float(fixed point real numbers) load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
+Make a prioity queue of threads. Each thread should be sorted by its class attribute "priority". The class shares the global class variables float(fixed point real numbers) load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
 
 ```
 struct mlfqs_list_elem
@@ -180,7 +180,7 @@ struct mlfqs_list_elem
 }
 ```
 
-Every 4 ticks, each thread updates itself. For each queue stored in the array, it iterates through that queue's threads and updates the priority value of each thread. If a thread's priority value has changed, the thread moves to a different linked list.
+Every 4 ticks, each thread updates its priority value. At a set time, the priority queue blocks interrupts and re-sorts itself. Always take the next task from the top of the priority queue (the one with the highest priority value).
 
 ```
 void update(thread){
@@ -196,8 +196,8 @@ void move(thread, queue){
 
 
 ### 2) Algorithms
-
-The ready queue is essentially implemented as an array (hash) of queues (where the queues are implemented as linked lists) where each queue stores asdf and tasks? priority values are updated dynamically using the MLFQS formulas. Every 4 ticks, the priority values for all threads are re-calculated. To choose the next thread to run, go down the array of priority queues starting with the highest priority and choose the first queue that is not empty. Then update the ready_threads with the threads in that priority queue and compute the new load_avg. The first thread to be run will be the first element of the queue. Ties are broken by always taking whichever is first in the queue (at the head).
+IGNORE THIS NOW. CORRECT DOCUMENTATION IS ABOVE ^
+The ready queue is essentially implemented as an array (hash) of queues (where the queues are implemented as linked lists) where each queue stores tasks? priority values are updated dynamically using the MLFQS formulas. Every 4 ticks, the priority values for all threads are re-calculated. To choose the next thread to run, go down the array of priority queues starting with the highest priority and choose the first queue that is not empty. Then update the ready_threads with the threads in that priority queue and compute the new load_avg. The first thread to be run will be the first element of the queue. Ties are broken by always taking whichever is first in the queue (at the head).
 
 
 
