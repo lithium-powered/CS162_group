@@ -78,11 +78,6 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-
-//static functions for part3
-static void mlfqs_recalculate_priority(struct thread*, void *);
-static void mlfqs_recalculate_recentcpu(struct thread*, void *);
-static void mlfqs_recalculate_loadavg(void);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -189,7 +184,7 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-  
+
   if (thread_mlfqs){
     //Disable interrupts
     intr_disable ();
