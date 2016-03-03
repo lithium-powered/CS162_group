@@ -522,3 +522,12 @@ list_min (struct list *list, list_less_func *less, void *aux)
     }
   return min;
 }
+
+bool compare_sleeptime_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED){
+  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
+  struct thread_list_elem, elem);
+  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
+  struct thread_list_elem, elem);
+  return thread_elem_A->thread->sleep_time < thread_elem_B->thread->sleep_time; 
+}

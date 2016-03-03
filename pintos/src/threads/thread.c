@@ -41,6 +41,9 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
+/* Nurr added March 3 */
+static struct semaphore sema;
+
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
   {
@@ -98,12 +101,14 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&sleep_list);
   list_init (&all_list);
-
+  sema_init(&sema, 0);
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  sleep_time = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -321,7 +326,7 @@ thread_yield (void)
   //Adding check for current time 
   if (cur.sleep_time < timer_ticks ()){
     //Add to sleep thread
-    list_insert_ordered(&sleep_list, &cur-> elem, FUNCTION, AUX)
+    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL)
     cur->status = THREAD_BLOCKED;
   }
   //Changed this if to an else
@@ -516,6 +521,17 @@ next_thread_to_run (void)
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
+static void
+sleep_to_ready (void) 
+{ 
+  for (int i = 0; i < list_size(&sleep_list); i++){
+    if (list_front(&sleep_list).sleep_time < timer_ticks()){
+      list_push_back(&sleeplist, list_pop_front(&sleep_list))
+    } else {
+      break;
+    }
+  }
+}
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
 
@@ -572,6 +588,7 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+  sleep_to_ready();
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
