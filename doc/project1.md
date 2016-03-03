@@ -64,6 +64,7 @@ we said we wanted semaphores on the threads and then to down the semaphore which
 
 	Lets do this in a seperate branch
 
+* Having trouble accessing timer_ticks() to check current time, find alternate way around
 
 
 
