@@ -98,7 +98,7 @@ timer_sleep (int64_t ticks)
   //while (timer_elapsed (start) < ticks) 
   //  thread_yield ();
 
-  thread_cur()-> sleep_time = start + ticks;
+  thread_current()-> sleep_time = start + ticks;
   thread_yield ();
   //Assumption here is that thread_yield adds the thread to sleep list
 }
