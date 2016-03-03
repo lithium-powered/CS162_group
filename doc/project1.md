@@ -170,7 +170,17 @@ List of all potential concurrent accesses to shared resources:
 
 ### 1) Data Structures and Functions
 
-Make a prioity queue of threads. Each thread should be sorted by its class attribute "priority". The class shares the global class variables float(fixed point real numbers) load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
+Written so far: See mlfqs_recalculate, compare_priority, and thread_tick
+Setting up background stuff
+Getting/setting relevant values
+Sorting
+
+To Do:
+The actual MLFQS formula
+Interrupt handling
+
+
+Update: We are currently using the class variable "ready_list" as the priority queue of threads and the instance variable "priority" as the mlfqs priority value. Each thread should be sorted by "priority". The class shares the global class variables float(fixed point real numbers) load_avg and linked list ready_threads, and load_avg is re-calculated every second (100 ticks). It has the instance variables float recent_cpu and int nice (unique to each thread) which are also re-calculated when necessary:
 
 ```
 struct mlfqs_list_elem
