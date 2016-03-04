@@ -163,14 +163,14 @@ static void mlfqs_recalculate_loadavg(void){
   if (thread_current() != idle_thread){ //Need part 1 to update ready_list when threads sleep
     ready_threads += 1;
   }
-  load_avg = fix_add(fix_mul(load_avg, fix_frac(59,60)), fix_frac(ready_threads,60));
+  load_avg = fix_add(fix_mul(load_avg, fix_frac(59,60)), fix_div(fix_int(ready_threads),fix_int(60)));
 }
 
 /*Annie - Sort list based on priority value*/
 bool compare_priority(const struct list_elem *elem_A, const struct list_elem *elem_B, void *aux UNUSED){
   struct thread_list_elem *thread_elem_A = list_entry (elem_A, struct thread_list_elem, elem);
   struct thread_list_elem *thread_elem_B = list_entry (elem_B, struct thread_list_elem, elem);
-  return thread_elem_A->thread->priority < thread_elem_B->thread->priority; 
+  return thread_elem_A->thread->priority > thread_elem_B->thread->priority; 
 }
 
 /* Called by the timer interrupt handler at each timer tick.
@@ -202,15 +202,15 @@ thread_tick (void)
       mlfqs_recalculate_loadavg();
       thread_foreach(mlfqs_recalculate_recentcpu, NULL);
     }
-    else if (t->status == THREAD_RUNNING){
-      //update recent cpu if the thread is running
-      // Increase current thread's cpu usage by 1
-      fixed_point_t one = fix_int(1);
-      t->recent_cpu = fix_add (t->recent_cpu, one); 
-    }
 
+    if (t->status == THREAD_RUNNING){
+       //update recent cpu if the thread is running
+        // Increase current thread's cpu usage by 1
+        fixed_point_t one = fix_int(1);
+        t->recent_cpu = fix_add (t->recent_cpu, one); 
+    }
     // update priority PER 4 SECONDS
-    if (timer_ticks() %(TIMER_FREQ*4) == 0){
+    if (timer_ticks() %(4) == 0){
       //Similar to thread_foreach but only with ready_list threads
       if (t != idle_thread){
         mlfqs_recalculate_priority(t, NULL);
@@ -224,6 +224,7 @@ thread_tick (void)
       }
       //sort ready_list
       list_sort(&(ready_list), &compare_priority, NULL);
+      //list_reverse(&ready_list);
       //Do I need to re-enable interrupts here? TODO
       //Need to make sure to yield if priority lower than first element on ready list
       if (list_size(&ready_list) > 0) {
@@ -233,6 +234,7 @@ thread_tick (void)
         }
       }
     }
+
   }
   //Check to see if enough ticks have passed to place thread on ready
 }
@@ -487,8 +489,9 @@ thread_set_nice (int new_nice) //TODO
   old_level = intr_disable ();
   struct thread *t = thread_current();
   t->nice = new_nice;
-  //need to change priority upon edit
+  //need to change priority upon edit TODO
   if (thread_mlfqs){
+    mlfqs_recalculate_recentcpu(t, NULL);
     mlfqs_recalculate_priority(t, NULL);
     if (list_size(&ready_list) > 0){
       struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
@@ -511,14 +514,14 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return fix_round(fix_mul(load_avg,fix_int(100)));
+  return fix_round(fix_scale(load_avg,100));
 } 
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  return fix_round(fix_mul(thread_current ()->recent_cpu,fix_int(100)));
+  return fix_round(fix_scale(thread_current ()->recent_cpu,100));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
