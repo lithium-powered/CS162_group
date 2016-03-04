@@ -506,7 +506,7 @@ next_thread_to_run (void)
     /* Added */
     list_sort(&(ready_list), &compare_effective_priority, NULL);
     /*********/
-
+    //
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
