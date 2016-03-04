@@ -126,7 +126,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+  sleep_time = -1;
   /* Start preemptive thread scheduling. */
   intr_enable ();
 
@@ -328,12 +328,19 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur->sleep_time == NULL){
-    if (cur != idle_thread){
-      list_push_back (&ready_list, &cur->elem);
-      cur->status = THREAD_READY;
-    }
+  
+  if (cur->sleep_time != -1){
+    if (cur->sleep_time > timer_ticks ()){
+      //Add to sleep thread
+      list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
+      cur->status = THREAD_BLOCKED;
+    } 
+    //might need an else
+  } else if (cur != idle_thread){
+    list_push_back (&ready_list, &cur->elem);
+    cur->status = THREAD_READY;
   }
+  
   schedule ();
   intr_set_level (old_level);
 }
@@ -528,7 +535,7 @@ sleep_to_ready (void)
   for (i = 0; i < list_size(&sleep_list); i++){
     struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
     if (front->sleep_time < timer_ticks()){
-      front->sleep_time = NULL;
+      front->sleep_time = -1;
       list_push_back(&sleep_list, list_pop_front(&sleep_list));
     } else {
       break;

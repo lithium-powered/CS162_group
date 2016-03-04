@@ -92,17 +92,13 @@ timer_sleep (int64_t ticks)
   enum intr_level old_level = intr_disable ();
   
   int64_t start = timer_ticks ();
-  thread_current()-> sleep_time = start + ticks;
-  
-  if (cur->sleep_time > timer_ticks ()){
-    //Add to sleep thread
-    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
-    cur->status = THREAD_BLOCKED;
-  }
+  struct thread *cur = thread_current(); 
+  cur-> sleep_time = start + ticks;
 
   intr_set_level (old_level);
 
-  ASSERT (intr_get_level () == INTR_ON);
+  //ASSERT (intr_get_level () == INTR_ON);
+
   //Instead of this while loop, change so that thread's sleep_time count is initialized
   //Call yield or potentially other function -> Checks that timer has a number and puts it into the list
   //Change ticks so that it checks for new threads to throw on ready
