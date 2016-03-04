@@ -337,17 +337,19 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  old_level = intr_disable ();
   thread_current ()->priority = new_priority;
   
   /* Added */
   thread_yield();  //optimization: check to see if we need to yield? (are we still highest prio)
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void) 
 {
-  return thread_current ()->priority;
+  return thread_current ()->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
