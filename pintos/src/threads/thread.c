@@ -338,6 +338,10 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  
+  /* Added */
+
+  thread_yield();  //optimization: check to see if we need to yield? (are we still highest prio)
 }
 
 /* Returns the current thread's priority. */
