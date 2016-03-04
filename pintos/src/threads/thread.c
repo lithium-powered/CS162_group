@@ -340,7 +340,6 @@ thread_set_priority (int new_priority)
   thread_current ()->priority = new_priority;
   
   /* Added */
-
   thread_yield();  //optimization: check to see if we need to yield? (are we still highest prio)
 }
 
@@ -508,7 +507,7 @@ next_thread_to_run (void)
     list_sort(&(ready_list), &compare_effective_priority, NULL);
     /*********/
 
-    return list_entry (list_pop_back (&ready_list), struct thread, elem);
+    return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
