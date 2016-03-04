@@ -17,5 +17,6 @@ Added compare_priority function as the sorting function for ready_list.
 
 To Do
 
-Recalculate load_avg and recent_cpu once per second.
+Recalculate load_avg and recent_cpu once per second (100 ticks?).
 Figure out interrupt enabling/disabling.
+Figure out how to test????
