@@ -322,7 +322,6 @@ thread_yield (void)
 {
   /*Finding a way to add the yielded thread to the sleep list
     If time has not come up and if time is 0, add to readylist */
-  printf("Trying to yield\n");
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
@@ -335,8 +334,11 @@ thread_yield (void)
       //Add to sleep thread
       list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
       cur->status = THREAD_BLOCKED;
-    } 
+    } else {
     //might need an else
+      list_push_back (&ready_list, &cur->elem);
+      cur->status = THREAD_READY;
+    }
   } else if (cur != idle_thread){
     list_push_back (&ready_list, &cur->elem);
     cur->status = THREAD_READY;
@@ -534,12 +536,12 @@ static void
 sleep_to_ready (void) 
 { 
   enum intr_level old_level = intr_disable ();
-  uint32_t i;
-  for (i = 0; i < list_size(&sleep_list); i++){
+  //uint32_t i;
+  while (!list_empty(&sleep_list)){
     struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
-    if (front->sleep_time < timer_ticks()){
+    if (front->sleep_time <= timer_ticks()){
       front->sleep_time = -1;
-      list_push_back(&sleep_list, list_pop_front(&sleep_list));
+      list_push_back(&ready_list, list_pop_front(&sleep_list));
     } else {
       break;
     }
