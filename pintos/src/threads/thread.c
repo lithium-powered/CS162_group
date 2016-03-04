@@ -48,7 +48,7 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* Nurr added March 3 */
-static struct semaphore sema;
+//static struct semaphore sema;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -107,14 +107,14 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&sleep_list);
   list_init (&all_list);
-  sema_init(&sema, 0);
+  //sema_init(&sema, 0);
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 
-  sleep_time = 0;
+  sleep_time = -1;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -322,6 +322,7 @@ thread_yield (void)
 {
   /*Finding a way to add the yielded thread to the sleep list
     If time has not come up and if time is 0, add to readylist */
+  printf("Trying to yield\n");
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
@@ -338,6 +339,8 @@ thread_yield (void)
     //might need an else
   } else if (cur != idle_thread){
     list_push_back (&ready_list, &cur->elem);
+    cur->status = THREAD_READY;
+  } else {
     cur->status = THREAD_READY;
   }
   
