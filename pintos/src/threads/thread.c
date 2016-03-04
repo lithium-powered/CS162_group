@@ -509,7 +509,7 @@ next_thread_to_run (void)
     /* Added */
     list_sort(&(ready_list), &compare_effective_priority, NULL);
     /*********/
-    //
+
     return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
@@ -619,7 +619,7 @@ bool compare_effective_priority(const struct list_elem *elem_A,
     struct thread_list_elem, elem);
   struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
     struct thread_list_elem, elem);
-  return thread_elem_A->thread->effective_priority < thread_elem_B->thread->effective_priority; 
+  return thread_elem_A->thread->priority < thread_elem_B->thread->priority; 
 }
 
 
