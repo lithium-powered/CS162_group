@@ -42,7 +42,7 @@ static struct list all_list;
 /* Idle thread. */
 static struct thread *idle_thread;
 
-/* Initial thread, the thread running init.c:main(). *//Volumes/vagrant/code/group/pintos/src/threads/thread.c
+/* Initial thread, the thread running init.c:main(). */
 static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
@@ -300,6 +300,11 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if (thread_current ()->priority < t->priority)
+  { //yield if current thread priority is lower than newly created
+    ASSERT (!intr_context ());
+    thread_yield ();
+  }
   return tid;
 }
 
@@ -478,22 +483,21 @@ thread_get_priority (void)
 void
 thread_set_nice (int new_nice) //TODO
 {
+  enum intr_level old_level;
+  old_level = intr_disable ();
   struct thread *t = thread_current();
   t->nice = new_nice;
-  //need to change priority upon edit TODO
+  //need to change priority upon edit
   if (thread_mlfqs){
     mlfqs_recalculate_priority(t, NULL);
-
-    enum intr_level old_level;
-    old_level = intr_disable ();
     if (list_size(&ready_list) > 0){
       struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
       if (t->priority < firstready->priority){
         thread_yield();
       }
     }
-    intr_set_level (old_level);
   }
+  intr_set_level (old_level);
 }
 
 /* Returns the current thread's nice value. */
@@ -507,14 +511,14 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return fix_round(fix_scale(load_avg,100));
+  return fix_round(fix_mul(load_avg,fix_int(100)));
 } 
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  return fix_round(fix_scale(thread_current ()->recent_cpu,100));
+  return fix_round(fix_mul(thread_current ()->recent_cpu,fix_int(100)));
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -604,7 +608,17 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-
+  if (thread_mlfqs)
+  {
+    if (t == initial_thread){
+      t->nice = 0;
+      t->recent_cpu = fix_int(0);
+    }
+    else{
+      t->nice = thread_current ()->nice;
+      t->recent_cpu = thread_current ()->recent_cpu;
+    }
+  }
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
