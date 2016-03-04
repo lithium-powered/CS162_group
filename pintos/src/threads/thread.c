@@ -133,10 +133,12 @@ static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
   if (t != idle_thread){
     t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
     //check max/min
-    if (t->priority > PRI_MAX)
+    if (t->priority > PRI_MAX){
       t->priority = PRI_MAX;
-    else if (t->priority < PRI_MIN)
+    }
+    else if (t->priority < PRI_MIN){
       t->priority = PRI_MIN;
+    }
   }
 }
 static void mlfqs_recalculate_recentcpu(struct thread *t, void *aux UNUSED){
@@ -144,17 +146,17 @@ static void mlfqs_recalculate_recentcpu(struct thread *t, void *aux UNUSED){
   if (t != idle_thread){
     fixed_point_t doubleloadavg = fix_scale(load_avg,2);
     fixed_point_t q = fix_div(doubleloadavg, fix_add(doubleloadavg,fix_int(1)));
-    t->recent_cpu = fix_add(q,fix_int(t->nice));
+    fixed_point_t temp = fix_mul(q,t->recent_cpu);
+    t->recent_cpu = fix_add(temp,fix_int(t->nice)); //Need part 1 to update ready_list when threads sleep
   }
 }
 static void mlfqs_recalculate_loadavg(void){
   //load_avg = (59/60) × load_avg + (1/60) × ready_threads
   int ready_threads = list_size(&ready_list);
-  if (thread_current() != idle_thread){
+  if (thread_current() != idle_thread){ //Need part 1 to update ready_list when threads sleep
     ready_threads += 1;
   }
-
-  load_avg = fix_add(fix_scale(load_avg, 59/60), fix_int(ready_threads/60));
+  load_avg = fix_add(fix_mul(load_avg, fix_frac(59,60)), fix_frac(ready_threads,60));
 }
 
 /*Annie - Sort list based on priority value*/
