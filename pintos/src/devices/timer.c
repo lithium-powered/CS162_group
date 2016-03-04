@@ -89,7 +89,18 @@ timer_elapsed (int64_t then)
 void
 timer_sleep (int64_t ticks) 
 {
+  enum intr_level old_level = intr_disable ();
+  
   int64_t start = timer_ticks ();
+  thread_current()-> sleep_time = start + ticks;
+  
+  if (cur->sleep_time > timer_ticks ()){
+    //Add to sleep thread
+    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
+    cur->status = THREAD_BLOCKED;
+  }
+
+  intr_set_level (old_level);
 
   ASSERT (intr_get_level () == INTR_ON);
   //Instead of this while loop, change so that thread's sleep_time count is initialized
@@ -98,7 +109,6 @@ timer_sleep (int64_t ticks)
   //while (timer_elapsed (start) < ticks) 
   //  thread_yield ();
 
-  thread_current()-> sleep_time = start + ticks;
   thread_yield ();
   //Assumption here is that thread_yield adds the thread to sleep list
 }

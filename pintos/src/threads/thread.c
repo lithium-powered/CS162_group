@@ -328,17 +328,11 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-
-  //Adding check for current time 
-  if (cur->sleep_time < timer_ticks ()){
-    //Add to sleep thread
-    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
-    cur->status = THREAD_BLOCKED;
-  } else if (cur != idle_thread){
-    //Changed this if to an elseif
-    list_push_back (&ready_list, &cur->elem);
-    cur->status = THREAD_READY;
-
+  if (cur->sleep_time == NULL){
+    if (cur != idle_thread){
+      list_push_back (&ready_list, &cur->elem);
+      cur->status = THREAD_READY;
+    }
   }
   schedule ();
   intr_set_level (old_level);
@@ -529,15 +523,19 @@ next_thread_to_run (void)
 static void
 sleep_to_ready (void) 
 { 
+  enum intr_level old_level = intr_disable ();
   uint32_t i;
   for (i = 0; i < list_size(&sleep_list); i++){
     struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
     if (front->sleep_time < timer_ticks()){
+      front->sleep_time = NULL;
       list_push_back(&sleep_list, list_pop_front(&sleep_list));
     } else {
       break;
     }
   }
+  intr_set_level (old_level);
+
 }
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
