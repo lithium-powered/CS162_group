@@ -600,13 +600,12 @@ allocate_tid (void)
 
 //Has to be atomic
 void set_effective_priority(struct thread *thread){
+  ASSERT (intr_get_level () == INTR_OFF);
   struct list_elem *elem = list_max(&(thread->donor_list), &compare_effective_priority, NULL);
   struct thread_list_elem *thread_elem = list_entry (elem, 
     struct thread_list_elem, elem);
-  int highest_donated_priority = thread_elem->thread->effective_priority;
-  if (highest_donated_priority > thread->priority){
-    thread->effective_priority = highest_donated_priority;
-  } else {
+  int effective_priority = thread_elem->thread->effective_priority;
+  if (thread->priority > effective_priority){
     thread->effective_priority = thread->priority;
   }
 }
