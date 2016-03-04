@@ -200,8 +200,8 @@ thread_tick (void)
       fixed_point_t one = fix_int(1);
       t->recent_cpu = fix_add (t->recent_cpu, one); 
     }
-    // update priority PER 4 SECONDS
 
+    // update priority PER 4 SECONDS
     if (timer_ticks() %(TIMER_FREQ*4) == 0){
       //Similar to thread_foreach but only with ready_list threads
       if (t != idle_thread){
@@ -210,16 +210,21 @@ thread_tick (void)
       //thread_foreach but only on ready list 
       struct list_elem *e;
       ASSERT (intr_get_level () == INTR_OFF);
-      for (e = list_begin (&ready_list); e != list_end (&ready_list);
-           e = list_next (e))
-        {
-          struct thread *t = list_entry (e, struct thread, allelem);
-          mlfqs_recalculate_priority(t, NULL);
-        }
+      for (e = list_begin (&ready_list); e != list_end (&ready_list); e = list_next (e)){
+        struct thread *t = list_entry (e, struct thread, elem);
+        mlfqs_recalculate_priority(t, NULL);
+      }
       //sort ready_list
       list_sort(&(ready_list), &compare_priority, NULL);
       //Do I need to re-enable interrupts here? TODO
+      //Need to make sure to yield if priority lower than first element on ready list
+      if (list_size(&ready_list) > 0) {
+        struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
+        if (t->priority < firstready->priority){
+          intr_yield_on_return();
+        }
       }
+    }
   }
 }
 
@@ -423,7 +428,17 @@ thread_set_priority (int new_priority)
   if (!thread_mlfqs){
     thread_current ()->priority = new_priority;
   }
-  //TODO need to yield if priority now is less than ready_list
+  //yield if priority now is less than ready_list
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  if (list_size(&ready_list) > 0){
+    struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
+    if (new_priority < firstready->priority){
+      thread_yield();
+    }
+  }
+  intr_set_level(old_level);
 }
 
 /* Returns the current thread's priority. */
@@ -440,14 +455,19 @@ thread_set_nice (int new_nice) //TODO
   struct thread *t = thread_current();
   t->nice = new_nice;
   //need to change priority upon edit TODO
-  // if (thread_mlfqs){
-  //   mlfqs_recalculate_priority(t, NULL);
-  //   enum intr_level old_level;
-  //   old_level = intr_disable ();
-  //   check to see if our priority is less than next ready thread
-  //   intr_set_level (old_level);
-  //   yield if previous true
-  // }
+  if (thread_mlfqs){
+    mlfqs_recalculate_priority(t, NULL);
+
+    enum intr_level old_level;
+    old_level = intr_disable ();
+    if (list_size(&ready_list) > 0){
+      struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
+      if (t->priority < firstready->priority){
+        thread_yield();
+      }
+    }
+    intr_set_level (old_level);
+  }
 }
 
 /* Returns the current thread's nice value. */
