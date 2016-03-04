@@ -182,8 +182,6 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  //Added
-  list_init(&(t->donor_list));
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -239,7 +237,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_push_front (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -310,7 +308,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_push_front (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -343,8 +341,13 @@ thread_set_priority (int new_priority)
   set_effective_priority(thread_current());
   
   /* Added */
-  //
-  thread_yield();  //optimization: check to see if we need to yield? (are we still highest prio)
+  if(!list_empty(&ready_list)){
+    list_sort(&ready_list, &compare_effective_priority, NULL);
+    if (list_entry(list_back(&ready_list), struct thread, elem)->effective_priority 
+      >= thread_get_priority()){
+      thread_yield();
+    }
+  }
   intr_set_level (old_level);
 }
 
@@ -476,11 +479,12 @@ init_thread (struct thread *t, const char *name, int priority)
 
   /* Added */
   t->effective_priority = priority;
+  list_init(&(t->donor_list));
 
   /*********/
 
   old_level = intr_disable ();
-  list_push_back (&all_list, &t->allelem);
+  list_push_front (&all_list, &t->allelem);
   intr_set_level (old_level);
 }
 
@@ -508,6 +512,8 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
+    ASSERT (intr_get_level () == INTR_OFF);
+    
     /* Added */
     list_sort(&(ready_list), &compare_effective_priority, NULL);
     /*********/
@@ -601,13 +607,23 @@ allocate_tid (void)
 //Has to be atomic
 void set_effective_priority(struct thread *thread){
   ASSERT (intr_get_level () == INTR_OFF);
+  
+  /*
   struct list_elem *elem = list_max(&(thread->donor_list), &compare_effective_priority, NULL);
-  struct thread_list_elem *thread_elem = list_entry (elem, 
-    struct thread_list_elem, elem);
-  int effective_priority = thread_elem->thread->effective_priority;
-  if (thread->priority > effective_priority){
+  if (elem != list_tail(&(thread->donor_list))){
+    struct thread *thread_elem = list_entry (elem, 
+    struct thread, elem);
+    int effective_priority = thread_elem->effective_priority;
+    if (thread->priority > effective_priority){
+      thread->effective_priority = thread->priority;
+    }else{
+      thread->effective_priority = effective_priority;
+    }
+  }else{
     thread->effective_priority = thread->priority;
   }
+  */
+  thread->effective_priority = thread->priority;
 }
 
 int get_effective_priority(struct thread *thread){
@@ -616,11 +632,11 @@ int get_effective_priority(struct thread *thread){
 
 bool compare_effective_priority(const struct list_elem *elem_A, 
   const struct list_elem *elem_B, void *aux UNUSED){
-  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
-    struct thread_list_elem, elem);
-  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
-    struct thread_list_elem, elem);
-  return thread_elem_A->thread->priority < thread_elem_B->thread->priority; 
+  struct thread *thread_elem_A = list_entry (elem_A, 
+    struct thread, elem);
+  struct thread *thread_elem_B = list_entry (elem_B, 
+    struct thread, elem);
+  return thread_elem_A->effective_priority < thread_elem_B->effective_priority; 
 }
 
 

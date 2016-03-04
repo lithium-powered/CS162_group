@@ -68,7 +68,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_push_front (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -113,10 +113,18 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
+
+  int prev_priority = thread_get_priority();
+  list_sort(&sema->waiters, &compare_effective_priority, NULL);
+
   if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
+    thread_unblock (list_entry (list_pop_back (&sema->waiters),
                                 struct thread, elem));
+
   sema->value++;
+  if (prev_priority >= thread_get_priority()){
+    thread_yield();
+  }
   intr_set_level (old_level);
 }
 
@@ -295,7 +303,7 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-  list_push_back (&cond->waiters, &waiter.elem);
+  list_push_front (&cond->waiters, &waiter.elem);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
@@ -316,8 +324,12 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (!intr_context ());
   ASSERT (lock_held_by_current_thread (lock));
 
+  /* Added */
+  list_sort(&cond->waiters, &compare_effective_priority, NULL);
+  /*********/
+
   if (!list_empty (&cond->waiters)) 
-    sema_up (&list_entry (list_pop_front (&cond->waiters),
+    sema_up (&list_entry (list_pop_back (&cond->waiters),
                           struct semaphore_elem, elem)->semaphore);
 }
 
@@ -333,8 +345,14 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   ASSERT (cond != NULL);
   ASSERT (lock != NULL);
 
+  /* Added */
+
+
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
+
+
+
 }
 
 /******* Added Code*******/
@@ -348,3 +366,18 @@ void donate (struct lock *lock, int priority){
   list_push_front((&lock->holder->donor_list), &donor.elem);
   
 }
+
+
+bool compare_cond_waiters(const struct list_elem *list_elem_A, 
+  const struct list_elem *list_elem_B, void *aux UNUSED){
+  struct semaphore *elem_A = &list_entry (list_elem_A, 
+    struct semaphore_elem, elem)->semaphore;
+  struct semaphore *elem_B = &list_entry (list_elem_B, 
+    struct semaphore_elem, elem)->semaphore;
+  list_sort(&elem_A->waiters, &compare_effective_priority, NULL);
+  list_sort(&elem_B->waiters, &compare_effective_priority, NULL);
+
+  return compare_effective_priority(list_back(&elem_A->waiters), 
+    list_back(&elem_B->waiters), NULL); 
+}
+
