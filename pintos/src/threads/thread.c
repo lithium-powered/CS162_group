@@ -337,6 +337,7 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
+  enum intr_level old_level;
   old_level = intr_disable ();
   thread_current ()->priority = new_priority;
   
@@ -509,7 +510,7 @@ next_thread_to_run (void)
     list_sort(&(ready_list), &compare_effective_priority, NULL);
     /*********/
     //
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
