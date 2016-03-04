@@ -46,12 +46,6 @@ struct kernel_thread_frame
     void *aux;                  /* Auxiliary data for function. */
   };
 
-/*Annie*/
-//static struct list mlfqs_queue
-//static float load_avg;
-
-
-
 /* Statistics. */
 static long long idle_ticks;    /* # of timer ticks spent idle. */
 static long long kernel_ticks;  /* # of timer ticks in kernel threads. */
@@ -476,7 +470,6 @@ thread_set_nice (int new_nice) //TODO
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
   return thread_current()->nice; //Annie
 }
 
@@ -484,8 +477,6 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  //return 100*load_avg; //Annie This is wrong lol load_avg is fixed point
   return fix_round(fix_scale(load_avg,100));
 } 
 
@@ -493,7 +484,6 @@ thread_get_load_avg (void)
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
   return fix_round(fix_scale(thread_current ()->recent_cpu,100));
 }
 
