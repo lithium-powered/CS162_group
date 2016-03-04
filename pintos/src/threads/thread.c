@@ -5,6 +5,8 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+
+#include "devices/timer.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -14,6 +16,7 @@
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+
 #endif
 
 /* Random value for struct thread's `magic' member.
@@ -25,6 +28,13 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* Nurr added List of processes in THREAD_NOTREADY state, that is, processes
+that are sleeping waiting for ticks to pass. */
+static struct list sleep_list;
+
+/* Nurr added March 3 */
+static int64_t sleep_time;                
+
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
@@ -32,11 +42,14 @@ static struct list all_list;
 /* Idle thread. */
 static struct thread *idle_thread;
 
-/* Initial thread, the thread running init.c:main(). */
+/* Initial thread, the thread running init.c:main(). *//Volumes/vagrant/code/group/pintos/src/threads/thread.c
 static struct thread *initial_thread;
 
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
+
+/* Nurr added March 3 */
+//static struct semaphore sema;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -89,20 +102,20 @@ void
 thread_init (void) 
 {
   ASSERT (intr_get_level () == INTR_OFF);
-
   load_avg = fix_int(0);
-
+  //init list for sleep list in thread_init
   lock_init (&tid_lock);
   list_init (&ready_list);
+  list_init (&sleep_list);
   list_init (&all_list);
-
-  //list_init(&mlfqs_queue) //Annie
-
+  //sema_init(&sema, 0);
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+
+  sleep_time = 0;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -114,7 +127,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+  sleep_time = 0;
   /* Start preemptive thread scheduling. */
   intr_enable ();
 
@@ -180,7 +193,6 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
-
   if (thread_mlfqs){
     //Disable interrupts
     intr_disable ();
@@ -222,6 +234,7 @@ thread_tick (void)
       }
     }
   }
+  //Check to see if enough ticks have passed to place thread on ready
 }
 
 
@@ -387,15 +400,32 @@ thread_exit (void)
 void
 thread_yield (void) 
 {
+  /*Finding a way to add the yielded thread to the sleep list
+    If time has not come up and if time is 0, add to readylist */
   struct thread *cur = thread_current ();
   enum intr_level old_level;
   
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-  if (cur != idle_thread) 
+  
+  if (cur->sleep_time != 0){
+    if (cur->sleep_time > timer_ticks ()){
+      //Add to sleep thread
+      list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
+      cur->status = THREAD_BLOCKED;
+    } else {
+    //might need an else
+      list_push_back (&ready_list, &cur->elem);
+      cur->status = THREAD_READY;
+    }
+  } else if (cur != idle_thread){
     list_push_back (&ready_list, &cur->elem);
-  cur->status = THREAD_READY;
+    cur->status = THREAD_READY;
+  } else {
+    cur->status = THREAD_READY;
+  }
+  
   schedule ();
   intr_set_level (old_level);
 }
@@ -607,6 +637,25 @@ next_thread_to_run (void)
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
+static void
+sleep_to_ready (void) 
+{ 
+  enum intr_level old_level = intr_disable ();
+  //uint32_t i;
+  while (!list_empty(&sleep_list)){
+    struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
+    
+    if (front->sleep_time <= timer_ticks()){
+      list_push_back(&ready_list, list_pop_front(&sleep_list));
+      front->sleep_time = 0;
+    } else {
+      break;
+    }
+  
+  }
+  intr_set_level (old_level);
+
+}
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
 
@@ -663,6 +712,7 @@ thread_schedule_tail (struct thread *prev)
 static void
 schedule (void) 
 {
+  sleep_to_ready();
   struct thread *cur = running_thread ();
   struct thread *next = next_thread_to_run ();
   struct thread *prev = NULL;
@@ -689,6 +739,18 @@ allocate_tid (void)
 
   return tid;
 }
+
+/* Added */
+bool compare_sleeptime_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED)
+{
+  struct thread *thread_elem_A = list_entry (elem_A, 
+  struct thread, elem);
+  struct thread *thread_elem_B = list_entry (elem_B, 
+  struct thread, elem);
+  return thread_elem_A->sleep_time < thread_elem_B->sleep_time; 
+}
+
 
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */

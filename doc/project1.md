@@ -14,10 +14,50 @@ Design Document for Project 1: Threads
 
 ### Progress and To-Do
 
-To-Do:
-* Add Structures to Threads - Semaphore set to 0 and Sleep Time = 0
-* Add Sleep List as Global Variable? Find a way to do this or create it
-* Add Function that sorts threads in sleep list upon addition
+Progress:
+*	Added static struct list elem to init.c at 120
+* 	Made note on Thread.H line 31 is potential place for static word
+* 	Tell li his var in thread should probably be a list and not a list elem
+* 	Added to do note in thread.c threadtick  on line 141
+* 	line 95 in timer.c
+	//Instead of this while loop, change so that thread's sleep count is initialized
+  	//Call yield or potentially other function -> Checks that timer has a number and puts it into the list
+  	//Change ticks so that it checks for new threads to throw on ready
+
+* Once enough ticks have passed, call list_push_back (&ready_list, &t->elem); thread.c 242
+
+* 	when timer_sleep is called, add the thread to the sleep thread
+* 	added sleep_list to thread.c 27 where ready thread is declared
+* 	commented out while look in timer_sleep to replace with the comments in that section
+* 	removed init in init.c and added it to thread_init where ready threads are init too (93 thread.c) 
+* Look at thread_start and how it is initialized with a semaphore, do that for every thread started somehow
+* 	add sleep_time int in the thread_create? or init_thread (probably init_thread but not going to make any changes to it)
+* 	In timer.c added sleep_time to sleep value right after asserting interrupts are on
+* 	yielded thread so -> yield MUST add it to the sleep list 
+* 	In thread.c yield line 314 adding funciton where check for thread sleep time = if not up yet, add to sleep_list else add to ready list
+* CHECK INTERRUPTS AFTER THIS NOTHING MIGHT WORK OOOOPS LOOOL T_T
+* 	Insert ordered takes a FUNCTION and AUX that i havent filled in on 324 of thread.c
+* FIND MISSING NOT_READY CALL FOR A THREAD STATUS I FUCKED UP.
+
+* 	Returns true if A is less than B, or false if A is greater than or equal to B. 
+* Adding comparator inside list.c at 526 called compare_sleeptime_priority ##MIGHT ERROR BECAUSE thread_elem_A->thread->sleep_time. might need to be .sleeptime
+* 	Fixed the earlier insert ordered call
+* 	init sleeptime to 0 in 108 of thread.c
+* 	NOTE: interrupt off on works like enum intr_level old_level = intr_disable (); then intr_set_level (old_level);
+* 	Checking for awake threads will occur at the time of Schedule () aka the moving of asleep threads to ready threads will appear in code in schedule
+* Concept: To make it short, check for any awake threads and if there are, move them to ready within interrupts?
+* 	Added to thread.c588 schedule function call to sleep_to_ready() which moves all ready to awake threads to ready_list
+* 	Sleep_to_ready added at 522 thread.c under next_thread_to_run and is completed outside of interrupts
+* MAKE A CHECK OF THE PROCESS AS IN THE STEPS
+* MAKE A LIST OF PLACES IT NEEDS TO NOT BE INTERRUPTED AND INCLUDE HERE
+
+* 	added semaphore to thread.c at line 45 aking static struct called sema
+*	added sleep_time declaration at 108
+*	moved list_func to thread.c so that it could be called
+
+
+
+
 
 
 ### 1) Data Structures and Functions
