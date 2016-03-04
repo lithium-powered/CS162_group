@@ -340,6 +340,7 @@ thread_set_priority (int new_priority)
   enum intr_level old_level;
   old_level = intr_disable ();
   thread_current ()->priority = new_priority;
+  set_effective_priority(thread_current());
   
   /* Added */
   thread_yield();  //optimization: check to see if we need to yield? (are we still highest prio)
