@@ -332,15 +332,16 @@ thread_yield (void)
   if (cur->sleep_time != 0){
     if (cur->sleep_time > timer_ticks ()){
       //Add to sleep thread
-      list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
+      list_remove(&cur->elem);
+      list_push_back(&sleep_list, &cur-> elem);
       cur->status = THREAD_BLOCKED;
     } else {
     //might need an else
-      list_push_back (&ready_list, &cur->elem);
+      list_push_front (&ready_list, &cur->elem);
       cur->status = THREAD_READY;
     }
   } else if (cur != idle_thread){
-    list_push_back (&ready_list, &cur->elem);
+    list_push_front (&ready_list, &cur->elem);
     cur->status = THREAD_READY;
   } else {
     cur->status = THREAD_READY;
@@ -561,11 +562,12 @@ sleep_to_ready (void)
 { 
   enum intr_level old_level = intr_disable ();
   //uint32_t i;
+  list_sort(&sleep_list, &compare_sleeptime_priority, NULL);
+  struct thread *front;
   while (!list_empty(&sleep_list)){
-    struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
-    
+    front = list_entry(list_front(&sleep_list), struct thread, elem);
     if (front->sleep_time <= timer_ticks()){
-      list_push_back(&ready_list, list_pop_front(&sleep_list));
+      list_push_front(&ready_list, list_pop_front(&sleep_list));
       front->sleep_time = 0;
     } else {
       break;
