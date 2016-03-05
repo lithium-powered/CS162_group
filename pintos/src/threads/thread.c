@@ -48,7 +48,7 @@ static struct thread *initial_thread;
 static struct lock tid_lock;
 
 /* Nurr added March 3 */
-static struct semaphore sema;
+//static struct semaphore sema;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -107,7 +107,7 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&sleep_list);
   list_init (&all_list);
-  sema_init(&sema, 0);
+  //sema_init(&sema, 0);
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -126,7 +126,7 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
-
+  sleep_time = 0;
   /* Start preemptive thread scheduling. */
   intr_enable ();
 
@@ -328,19 +328,23 @@ thread_yield (void)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
-
-  //Adding check for current time 
-  if (cur->sleep_time < timer_ticks ()){
-    //Add to sleep thread
-    list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
-    cur->status = THREAD_BLOCKED;
+  
+  if (cur->sleep_time != 0){
+    if (cur->sleep_time > timer_ticks ()){
+      //Add to sleep thread
+      list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
+      cur->status = THREAD_BLOCKED;
+    } else {
+    //might need an else
+      list_push_back (&ready_list, &cur->elem);
+      cur->status = THREAD_READY;
+    }
   } else if (cur != idle_thread){
-    //Changed this if to an elseif
     list_push_back (&ready_list, &cur->elem);
     cur->status = THREAD_READY;
-
+  } else {
+    cur->status = THREAD_READY;
   }
-
   schedule ();
   intr_set_level (old_level);
 }
@@ -555,15 +559,21 @@ next_thread_to_run (void)
 static void
 sleep_to_ready (void) 
 { 
-  uint32_t i;
-  for (i = 0; i < list_size(&sleep_list); i++){
+  enum intr_level old_level = intr_disable ();
+  //uint32_t i;
+  while (!list_empty(&sleep_list)){
     struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
-    if (front->sleep_time < timer_ticks()){
-      list_push_back(&sleep_list, list_pop_front(&sleep_list));
+    
+    if (front->sleep_time <= timer_ticks()){
+      list_push_back(&ready_list, list_pop_front(&sleep_list));
+      front->sleep_time = 0;
     } else {
       break;
     }
+  
   }
+  intr_set_level (old_level);
+
 }
 /* Completes a thread switch by activating the new thread's page
    tables, and, if the previous thread is dying, destroying it.
@@ -686,11 +696,11 @@ bool compare_effective_priority(const struct list_elem *elem_A,
 bool compare_sleeptime_priority(const struct list_elem *elem_A, 
   const struct list_elem *elem_B, void *aux UNUSED)
 {
-  struct thread_list_elem *thread_elem_A = list_entry (elem_A, 
-  struct thread_list_elem, elem);
-  struct thread_list_elem *thread_elem_B = list_entry (elem_B, 
-  struct thread_list_elem, elem);
-  return thread_elem_A->thread->sleep_time < thread_elem_B->thread->sleep_time; 
+  struct thread *thread_elem_A = list_entry (elem_A, 
+  struct thread, elem);
+  struct thread *thread_elem_B = list_entry (elem_B, 
+  struct thread, elem);
+  return thread_elem_A->sleep_time < thread_elem_B->sleep_time; 
 }
 
 
