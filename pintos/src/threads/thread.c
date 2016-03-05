@@ -139,7 +139,8 @@ static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
   //priority = PRI_MAX − (recent_cpu/4) − (nice × 2)
   if (t != idle_thread){
     //t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
-    t->priority = fix_round(fix_sub(fix_int(PRI_MAX),fix_sub(fix_unscale(t->recent_cpu, 4),fix_int(t->nice * 2))));
+    fixed_point_t temp = fix_sub(fix_int(PRI_MAX),fix_unscale(t->recent_cpu, 4));
+    t->priority = fix_trunc(fix_sub(temp,fix_int(t->nice * 2)));
     //check max/min
     if (t->priority > PRI_MAX){
       t->priority = PRI_MAX;
@@ -147,6 +148,9 @@ static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
     else if (t->priority < PRI_MIN){
       t->priority = PRI_MIN;
     }
+    // printf("recent_cpu1:%d\n", fix_round(t->recent_cpu));
+    // printf("nice:%d\n", t->nice);
+    // printf("priority:%d\n\n", t->priority);
   }
 }
 static void mlfqs_recalculate_recentcpu(struct thread *t, void *aux UNUSED){
@@ -165,6 +169,8 @@ static void mlfqs_recalculate_loadavg(void){
     ready_threads += 1;
   }
   load_avg = fix_add(fix_mul(load_avg, fix_frac(59,60)), fix_div(fix_int(ready_threads),fix_int(60)));
+  // printf("load_avg:%d\n", fix_round(load_avg));
+  // printf("ready_threads:%d\n", list_size(&));
 }
 
 /*Annie - Sort list based on priority value*/
@@ -209,6 +215,7 @@ thread_tick (void)
         // Increase current thread's cpu usage by 1
         fixed_point_t one = fix_int(1);
         t->recent_cpu = fix_add (t->recent_cpu, one); 
+        //printf("recent_cpu:%d\n", fix_round(t->recent_cpu));
     }
     // update priority PER 4 SECONDS
     if (timer_ticks() %(4) == 0){
@@ -232,6 +239,9 @@ thread_tick (void)
         struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
         if (t->priority < firstready->priority){
           intr_yield_on_return();
+          printf("SWITCHED!! current:%d list:%d\n", t->priority, firstready->priority);
+        }else{
+          printf("current:%d list:%d\n", t->priority, firstready->priority);
         }
       }
     }
@@ -486,9 +496,9 @@ thread_get_priority (void)
 void
 thread_set_nice (int new_nice) //TODO
 {
+  struct thread *t = thread_current();
   enum intr_level old_level;
   old_level = intr_disable ();
-  struct thread *t = thread_current();
   t->nice = new_nice;
   //need to change priority upon edit TODO
   if (thread_mlfqs){
@@ -612,6 +622,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  old_level = intr_disable ();
   if (thread_mlfqs)
   {
     if (t == initial_thread){
@@ -623,7 +634,6 @@ init_thread (struct thread *t, const char *name, int priority)
       t->recent_cpu = thread_current ()->recent_cpu;
     }
   }
-  old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
 }
