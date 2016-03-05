@@ -636,17 +636,17 @@ init_thread (struct thread *t, const char *name, int priority)
         t->recent_cpu = thread_current ()->recent_cpu;
       }
     }
-    list_push_back (&all_list, &t->allelem);
+    //list_push_back (&all_list, &t->allelem);
   }else{
     /* Added */
     t->effective_priority = priority;
     list_init(&(t->donor_list));
 
     /*********/
-
-    old_level = intr_disable ();
-    list_push_front (&all_list, &t->allelem);
   }
+  old_level = intr_disable ();
+  list_push_front (&all_list, &t->allelem);
+
   intr_set_level (old_level);
 }
 
