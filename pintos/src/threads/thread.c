@@ -173,11 +173,13 @@ static void mlfqs_recalculate_loadavg(void){
   // printf("ready_threads:%d\n", list_size(&));
 }
 
-/*Annie - Sort list based on priority value*/
-bool compare_priority(const struct list_elem *elem_A, const struct list_elem *elem_B, void *aux UNUSED){
-  struct thread_list_elem *thread_elem_A = list_entry (elem_A, struct thread_list_elem, elem);
-  struct thread_list_elem *thread_elem_B = list_entry (elem_B, struct thread_list_elem, elem);
-  return thread_elem_A->thread->priority > thread_elem_B->thread->priority; 
+bool compare_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED){
+  struct thread *thread_elem_A = list_entry (elem_A, 
+    struct thread, elem);
+  struct thread *thread_elem_B = list_entry (elem_B, 
+    struct thread, elem);
+  return thread_elem_A->priority < thread_elem_B->priority; 
 }
 
 /* Called by the timer interrupt handler at each timer tick.
