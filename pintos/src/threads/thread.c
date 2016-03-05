@@ -608,11 +608,10 @@ allocate_tid (void)
 void set_effective_priority(struct thread *thread){
   ASSERT (intr_get_level () == INTR_OFF);
   
-  /*
-  struct list_elem *elem = list_max(&(thread->donor_list), &compare_effective_priority, NULL);
-  if (elem != list_tail(&(thread->donor_list))){
-    struct thread *thread_elem = list_entry (elem, 
-    struct thread, elem);
+  if (!list_empty(&(thread->donor_list))){
+    list_sort(&(thread->donor_list), &compare_effective_priority_donorelem, NULL);
+    struct thread *thread_elem = list_entry (list_back(&(thread->donor_list)), 
+      struct thread, donorelem);
     int effective_priority = thread_elem->effective_priority;
     if (thread->priority > effective_priority){
       thread->effective_priority = thread->priority;
@@ -622,8 +621,6 @@ void set_effective_priority(struct thread *thread){
   }else{
     thread->effective_priority = thread->priority;
   }
-  */
-  thread->effective_priority = thread->priority;
 }
 
 int get_effective_priority(struct thread *thread){

@@ -117,11 +117,19 @@ sema_up (struct semaphore *sema)
   int prev_priority = thread_get_priority();
   list_sort(&sema->waiters, &compare_effective_priority, NULL);
 
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_back (&sema->waiters),
-                                struct thread, elem));
-
+  struct thread *thread = NULL;
+  if (!list_empty (&sema->waiters)){
+    thread = list_entry (list_pop_back (&sema->waiters),
+                                struct thread, elem);
+    thread_unblock (thread);
+  }
   sema->value++;
+
+  if ((thread != NULL) && (thread->donee != NULL)){  //might have to change? logic?
+    undonate(thread);
+  }
+
+
   if (prev_priority >= thread_get_priority()){
     thread_yield();
   }
@@ -204,8 +212,16 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  if (lock->holder != NULL){
+    donate(lock);
+  }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+
+  intr_set_level (old_level);
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
@@ -239,8 +255,13 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
   lock->holder = NULL;
   sema_up (&lock->semaphore);
+
+  intr_set_level (old_level);
 }
 
 /* Returns true if the current thread holds LOCK, false
@@ -325,7 +346,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   ASSERT (lock_held_by_current_thread (lock));
 
   /* Added */
-  list_sort(&cond->waiters, &compare_effective_priority, NULL);
+  list_sort(&cond->waiters, &compare_cond_waiters, NULL);
   /*********/
 
   if (!list_empty (&cond->waiters)) 
@@ -345,8 +366,6 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   ASSERT (cond != NULL);
   ASSERT (lock != NULL);
 
-  /* Added */
-
 
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
@@ -358,13 +377,27 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 /******* Added Code*******/
 
 //Should only be called when lock->holder != NULL
-void donate (struct lock *lock, int priority){
-  ASSERT (lock->holder != NULL);
-
+void donate (struct lock *lock){
+  ASSERT(lock->holder != NULL);
   thread_current()->donee = lock->holder;
-  struct thread_list_elem donor = {thread_current(), {NULL,NULL}};
-  list_push_front((&lock->holder->donor_list), &donor.elem);
-  
+  list_push_front((&lock->holder->donor_list), &thread_current()->donorelem);
+  set_effective_priority(lock->holder);
+
+}
+
+void undonate(struct thread *thread){
+  list_remove(&thread->donorelem);
+  set_effective_priority(thread->donee);
+  thread->donee = NULL;
+}
+
+bool compare_effective_priority_donorelem(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED){
+  struct thread *thread_elem_A = list_entry (elem_A, 
+    struct thread, donorelem);
+  struct thread *thread_elem_B = list_entry (elem_B, 
+    struct thread, donorelem);
+  return thread_elem_A->effective_priority < thread_elem_B->effective_priority; 
 }
 
 

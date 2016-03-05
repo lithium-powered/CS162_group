@@ -106,6 +106,7 @@ struct thread
     struct semaphore *sema_sleep; // initialize with value 0 
     int64_t sleep_time;
     struct thread *donee;
+    struct list_elem donorelem; //added to donor_list of donee
     struct list donor_list;
     int effective_priority;
 
