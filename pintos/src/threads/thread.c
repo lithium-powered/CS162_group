@@ -138,7 +138,8 @@ thread_start (void)
 static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
   //priority = PRI_MAX − (recent_cpu/4) − (nice × 2)
   if (t != idle_thread){
-    t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
+    //t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
+    t->priority = fix_round(fix_sub(fix_int(PRI_MAX),fix_sub(fix_unscale(t->recent_cpu, 4),fix_int(t->nice * 2))));
     //check max/min
     if (t->priority > PRI_MAX){
       t->priority = PRI_MAX;
@@ -203,7 +204,7 @@ thread_tick (void)
       thread_foreach(mlfqs_recalculate_recentcpu, NULL);
     }
 
-    if (t->status == THREAD_RUNNING){
+    if (t->status == THREAD_RUNNING && t != idle_thread){
        //update recent cpu if the thread is running
         // Increase current thread's cpu usage by 1
         fixed_point_t one = fix_int(1);
