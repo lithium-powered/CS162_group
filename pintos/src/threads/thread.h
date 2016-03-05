@@ -27,6 +27,7 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 
 /* Added 2/24 */
+/* Other place to potentially add static for use for Asleep Threads By Nurr - Made static 2/25 */
 struct thread_list_elem
   {
     struct thread *thread; //Thread value stored in this node
@@ -104,7 +105,7 @@ struct thread
 
     /* Added 2/24*/
     struct semaphore *sema_sleep; // initialize with value 0 
-    int64_t sleep_time;
+    int64_t sleep_time;                 /* Sleep time if thread is asleep. */
     struct thread *donee;
     struct list_elem donorelem; //added to donor_list of donee
     struct list donor_list;
@@ -154,6 +155,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+bool compare_sleeptime_priority(const struct list_elem *, 
+  const struct list_elem *, void *aux);
 
 /* Added */
 void set_effective_priority(struct thread *);
