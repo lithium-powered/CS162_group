@@ -235,16 +235,15 @@ thread_tick (void)
       //list_reverse(&ready_list);
       //Do I need to re-enable interrupts here? TODO
       //Need to make sure to yield if priority lower than first element on ready list
-      if (list_size(&ready_list) > 0) {
-        struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
-        if (t->priority < firstready->priority){
-          intr_yield_on_return();
-          //printf("SWITCHED!! current:%d list:%d\n", t->priority, firstready->priority);
-        }
-        // }else{
-        //   //printf("current:%d list:%d\n", t->priority, firstready->priority);
-        // }
-      }
+    }
+    if (list_size(&ready_list) > 0) {
+      struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
+      if (t->priority <= firstready->priority){
+        intr_yield_on_return();
+        //printf("SWITCHED!! current:%d list:%d\n", t->priority, firstready->priority);
+      }// }else{
+      //   printf("current:%d list:%d\n", t->priority, firstready->priority);
+      // }
     }
 
   }
