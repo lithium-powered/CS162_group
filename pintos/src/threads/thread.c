@@ -354,7 +354,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+  list_push_front (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -430,20 +430,20 @@ thread_yield (void)
   if (cur->sleep_time != 0){
     if (cur->sleep_time > timer_ticks ()){
       //Add to sleep thread
-      list_insert_ordered(&sleep_list, &cur-> elem, &compare_sleeptime_priority, NULL);
+      //list_remove(&cur->elem);
+      list_push_back(&sleep_list, &cur-> elem);
       cur->status = THREAD_BLOCKED;
     } else {
     //might need an else
-      list_push_back (&ready_list, &cur->elem);
+      list_push_front (&ready_list, &cur->elem);
       cur->status = THREAD_READY;
     }
   } else if (cur != idle_thread){
-    list_push_back (&ready_list, &cur->elem);
+    list_push_front (&ready_list, &cur->elem);
     cur->status = THREAD_READY;
   } else {
     cur->status = THREAD_READY;
   }
-  
   schedule ();
   intr_set_level (old_level);
 }
@@ -469,14 +469,15 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  if (!thread_mlfqs){
-    thread_current ()->priority = new_priority;
-  }
-  //yield if priority now is less than ready_list
   enum intr_level old_level;
   old_level = intr_disable ();
-
+  if (!thread_mlfqs){
+    thread_current ()->priority = new_priority;
+    set_effective_priority(thread_current());
+  }
+  //yield if priority now is less than ready_list
   if (list_size(&ready_list) > 0){
+    list_sort(&ready_list, &compare_effective_priority, NULL);
     struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
     if (new_priority < firstready->priority){
       thread_yield();
@@ -489,7 +490,7 @@ thread_set_priority (int new_priority)
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  return thread_current ()->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -622,19 +623,30 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  if (thread_mlfqs){
   old_level = intr_disable ();
   if (thread_mlfqs)
   {
-    if (t == initial_thread){
-      t->nice = 0;
-      t->recent_cpu = fix_int(0);
+      if (t == initial_thread){
+        t->nice = 0;
+        t->recent_cpu = fix_int(0);
+      }
+      else{
+        t->nice = thread_current ()->nice;
+        t->recent_cpu = thread_current ()->recent_cpu;
+      }
     }
-    else{
-      t->nice = thread_current ()->nice;
-      t->recent_cpu = thread_current ()->recent_cpu;
-    }
+    list_push_back (&all_list, &t->allelem);
+  }else{
+    /* Added */
+    t->effective_priority = priority;
+    list_init(&(t->donor_list));
+
+    /*********/
+
+    old_level = intr_disable ();
+    list_push_front (&all_list, &t->allelem);
   }
-  list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
 }
 
@@ -662,7 +674,13 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    ASSERT (intr_get_level () == INTR_OFF);
+    
+    /* Added */
+    list_sort(&(ready_list), &compare_effective_priority, NULL);
+    /*********/
+
+    return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
 static void
@@ -670,12 +688,14 @@ sleep_to_ready (void)
 { 
   enum intr_level old_level = intr_disable ();
   //uint32_t i;
+  list_sort(&sleep_list, &compare_sleeptime_priority, NULL);
+  struct thread *front;
   while (!list_empty(&sleep_list)){
-    struct thread *front = list_entry(list_front(&sleep_list), struct thread, elem);
-    
+    front = list_entry(list_front(&sleep_list), struct thread, elem);
     if (front->sleep_time <= timer_ticks()){
-      list_push_back(&ready_list, list_pop_front(&sleep_list));
+      list_push_front(&ready_list, list_pop_front(&sleep_list));
       front->sleep_time = 0;
+      front->status = THREAD_READY; 
     } else {
       break;
     }
@@ -766,6 +786,39 @@ allocate_tid (void)
   lock_release (&tid_lock);
 
   return tid;
+}
+
+
+//Has to be atomic
+void set_effective_priority(struct thread *thread){
+  ASSERT (intr_get_level () == INTR_OFF);
+  
+  if (!list_empty(&(thread->donor_list))){
+    list_sort(&(thread->donor_list), &compare_effective_priority_donorelem, NULL);
+    struct thread *thread_elem = list_entry (list_back(&(thread->donor_list)), 
+      struct thread, donorelem);
+    int effective_priority = thread_elem->effective_priority;
+    if (thread->priority > effective_priority){
+      thread->effective_priority = thread->priority;
+    }else{
+      thread->effective_priority = effective_priority;
+    }
+  }else{
+    thread->effective_priority = thread->priority;
+  }
+}
+
+int get_effective_priority(struct thread *thread){
+  return thread->effective_priority;
+}
+
+bool compare_effective_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED){
+  struct thread *thread_elem_A = list_entry (elem_A, 
+    struct thread, elem);
+  struct thread *thread_elem_B = list_entry (elem_B, 
+    struct thread, elem);
+  return thread_elem_A->effective_priority < thread_elem_B->effective_priority; 
 }
 
 /* Added */

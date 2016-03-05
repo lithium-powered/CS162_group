@@ -107,8 +107,9 @@ struct thread
     struct semaphore *sema_sleep; // initialize with value 0 
     int64_t sleep_time;                 /* Sleep time if thread is asleep. */
     struct thread *donee;
+    struct list_elem donorelem; //added to donor_list of donee
     struct list donor_list;
-    int64_t effective_priority;
+    int effective_priority;
 
     /*Annie Part 3 instance variables*/
     int nice;
@@ -160,6 +161,12 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 bool compare_sleeptime_priority(const struct list_elem *, 
+  const struct list_elem *, void *aux);
+
+/* Added */
+void set_effective_priority(struct thread *);
+int get_effective_priority(struct thread *);
+bool compare_effective_priority(const struct list_elem *, 
   const struct list_elem *, void *aux);
 
 #endif /* threads/thread.h */

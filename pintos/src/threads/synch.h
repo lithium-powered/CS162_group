@@ -41,6 +41,18 @@ void cond_wait (struct condition *, struct lock *);
 void cond_signal (struct condition *, struct lock *);
 void cond_broadcast (struct condition *, struct lock *);
 
+/* 2/24 */
+void donate (struct lock *);
+
+void undonate(struct thread *);
+
+bool compare_cond_waiters(const struct list_elem *, 
+  const struct list_elem *, void *aux);
+
+bool compare_effective_priority_donorelem(const struct list_elem *, 
+  const struct list_elem *, void *aux);
+
+
 /* Optimization barrier.
 
    The compiler will not reorder operations across an
@@ -49,3 +61,5 @@ void cond_broadcast (struct condition *, struct lock *);
 #define barrier() asm volatile ("" : : : "memory")
 
 #endif /* threads/synch.h */
+
+

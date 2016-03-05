@@ -78,7 +78,6 @@ struct thread_list_elem
 	struct thread *thread; //Thread value stored in this node
 	struct list_elem elem; //Points to prev and next elem in list
 }
-
 ```
 Need a linked-list of sleeping threads (using provided linked list library)
 
@@ -86,9 +85,7 @@ Need a linked-list of sleeping threads (using provided linked list library)
 Add to thread struct:
 ```
 struct semaphore *sema_sleep; // initialize with value 0 
-
 int64_t sleep_time;
-
 ```
 * Add these two fields into the thread struct. 
 * sema_sleep should be created when the thread calls timer_sleep() and then the thread should be added to sleep_list as a linked list object.
@@ -139,38 +136,52 @@ We’ve considered using a linked list holding numerical values and decrementing
 Add to thread struct:
 ```
 struct thread *donee;
-struct thread_list_elem donor_list;
-int64_t effective_priority;
+struct list donor_list;
+int effective_priority;
 ```
 * add a donor linked list `donor_list`, each node in the linked list stores a `struct thread *donor`. This linked list stores all donated priority values of the thread. The effective priority of the thread is stored in `effective_priority`.
 * add a variable struct `thread *donee`, which points to the thread that the current thread has currently donated to (points to null if thread does not have donee).
-* `effective_priority` holds the priority that should be used for this thread (max of original and donated priority). Use `get_effective_priority` to set this variable.
+* `effective_priority` holds the priority that should be used for this thread (max of original and donated priority). Use `set_effective_priority` to set this variable.
 
-
+In `thread.c`:
 ```
-int64_t get_effective_priority(struct thread *thread){
-}
+void set_effective_priority(struct thread *thread);
 ```
 Function which should sort return the effective priority of a thread by looking at the thread's original and all donated priority and returning the highest value.
 
 
+In `thread.c`:
 ```
-void donate(lock *lock, int64_t priority){
+int get_effective_priority(struct thread *thread);
+```
+Gets `effective_priority` from thread.
+
+
+In `sync.c`:
+```
+void donate(lock *lock, int priority){
 }
 ```
 The thread that calls donate is added to the donor_list of the thread which holds lock and the envoking thread will donate its priority to the thread which holds the lock. The `struct thread *donee` variable of the envoking thread is set to point to the thread which holds the lock.
 
 
 ```
-void sortDonations(struct thread *donee){
-}
+bool compare_effective_priority(const struct list_elem *elem_A, 
+  const struct list_elem *elem_B, void *aux UNUSED);
 ```
-We sort the stack of the donor_list for each thread recursively based on their priority values, starting from thread which held the lock in the donate function.
-(Is is possible to use a general compare function that sorts based on efficient_priority? Can be used for both sorting donations and ready_queue.)
+Used in sorting functions to sort `thread_list_elem` based on `effective_priority`. 
 
-To obtain the holder of a current lock, use `struct thread *holder`
-in struct lock
 
+```
+list_init(t->donor_list);
+```
+Added this field to the function `thread_create()`. Need it to initialize donor_list for the thread.
+
+
+```
+t->effective_priority = priority;
+```
+Added this declaration to `init_thread()` to make sure `effective_priority` is set during thread initiation.
 
 ### 2) Algorithms
 
@@ -204,6 +215,12 @@ List of all potential concurrent accesses to shared resources:
 - Having pointers to donors instead of just saving int64_t values simplifies the case if a thread’s donor priority value changes. The reordering of the priority value will be handled when the linked list is resorted.
 
 -By putting the code for the thread selection based on priority inside or close to the scheduler as possible, we avoid having to duplicate code for different sync methods.
+
+### 5) Questions
+
+- Is it possible for a thread to donate a smaller priority to the donee? Can't think of a case where this could happen.
+
+- How to write the list_less_func.
 
 
 ## Task 3: Multi-level Feedback Queue Scheduler
