@@ -139,18 +139,7 @@ static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
   //priority = PRI_MAX − (recent_cpu/4) − (nice × 2)
   if (t != idle_thread){
     //int prior = t->priority;
-   // t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
-    fixed_point_t first = fix_int(PRI_MAX);
-    fixed_point_t second = fix_unscale(t->recent_cpu, 4);
-    int doublenice = 2*t->nice;
-    fixed_point_t third = fix_int(doublenice);
-    fixed_point_t intermediate = fix_sub(first,second);
-    t->priority = fix_trunc(fix_sub(intermediate,third));
-    //check max/min
-     //printf("%d\n",t->nice);
-     /*if (t->priority == prior){
-      printf("no change ");
-     }*/
+    t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
     if (t->priority > PRI_MAX){
       t->priority = PRI_MAX;
     }
@@ -215,11 +204,11 @@ thread_tick (void)
 
     //update load avg and recent cpu PER 1 SECOND
     if (timer_ticks() % TIMER_FREQ == 0){ //(# of timer ticks since the OS booted) % (Number of timer interrupts per second)
-      fixed_point_t a = load_avg;
+      //fixed_point_t a = load_avg;
       mlfqs_recalculate_loadavg();
       //printf("%d",fix_compare(a,load_avg));
       thread_foreach(mlfqs_recalculate_recentcpu, NULL);
-      thread_foreach(mlfqs_recalculate_priority,NULL);  //Anytime recentcpu changes, recalculate all priorities
+      //thread_foreach(mlfqs_recalculate_priority,NULL);  //Anytime recentcpu changes, recalculate all priorities
       list_sort(&(ready_list), &compare_priority, NULL); //Resort bc priorities have changed
     }
 
@@ -251,7 +240,7 @@ thread_tick (void)
       }
     }
 
-    if (t->status == THREAD_RUNNING){
+    if (t->status == THREAD_RUNNING && t != idle_thread){
        //update recent cpu if the thread is running
         // Increase current thread's cpu usage by 1
         fixed_point_t one = fix_int(1);
