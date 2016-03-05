@@ -332,7 +332,7 @@ thread_yield (void)
   if (cur->sleep_time != 0){
     if (cur->sleep_time > timer_ticks ()){
       //Add to sleep thread
-      list_remove(&cur->elem);
+      //list_remove(&cur->elem);
       list_push_back(&sleep_list, &cur-> elem);
       cur->status = THREAD_BLOCKED;
     } else {
@@ -567,7 +567,7 @@ sleep_to_ready (void)
   while (!list_empty(&sleep_list)){
     front = list_entry(list_front(&sleep_list), struct thread, elem);
     if (front->sleep_time <= timer_ticks()){
-      list_push_back(&ready_list, list_pop_front(&sleep_list));
+      list_push_front(&ready_list, list_pop_front(&sleep_list));
       front->sleep_time = 0;
       front->status = THREAD_READY; 
     } else {
