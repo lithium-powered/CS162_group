@@ -259,12 +259,7 @@ lock_release (struct lock *lock)
 
 
   list_sort(&(&lock->semaphore)->waiters, &compare_effective_priority, NULL);
-  struct thread *thread = NULL;
-  if (!list_empty (&(&lock->semaphore)->waiters)){
-    thread = list_entry (list_back (&(&lock->semaphore)->waiters),
-                                struct thread, elem);
-    undonate(thread, &lock->semaphore);
-  }
+  undonate(&lock->semaphore);
 
 
   sema_up (&lock->semaphore);
@@ -395,30 +390,35 @@ void donate (struct lock *lock){
   }
 }
 
-void undonate(struct thread *thread, struct semaphore *sema){
+void undonate(struct semaphore *sema){
   ASSERT (intr_get_level () == INTR_OFF);
-  list_remove(&thread->donorelem);
-
-  struct list_elem *otherWaiterElem = NULL;
-  struct thread *otherWaiterThread = NULL;
-  struct list_elem *head = list_head(&sema->waiters);
-  otherWaiterElem = list_back(&sema->waiters);
-  otherWaiterElem = list_prev(otherWaiterElem);
-  while(otherWaiterElem != head){
-    otherWaiterThread = list_entry (otherWaiterElem,
-                          struct thread, elem);
-    if(otherWaiterThread->donee != NULL){
-      if (((&otherWaiterThread->donorelem)->prev != NULL) &&
-         ((&otherWaiterThread->donorelem)->next != NULL)){
-        list_remove(&otherWaiterThread->donorelem);
-      }
-      otherWaiterThread->donee = thread; 
-      list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
+  if (!list_empty (&sema->waiters)){
+    struct thread *thread = list_entry (list_back (&sema->waiters),
+                                  struct thread, elem);
+    if (thread->donee == thread_current()){
+      thread->donee = NULL;
+      list_remove(&thread->donorelem);
     }
 
-    otherWaiterElem = list_prev(otherWaiterElem);
+    struct list_elem *otherWaiterElem = NULL;
+    struct thread *otherWaiterThread = NULL;
+    struct list_elem *head = list_head(&sema->waiters);
+    otherWaiterElem = list_prev(list_back(&sema->waiters));
+    while(otherWaiterElem != head){
+      otherWaiterThread = list_entry (otherWaiterElem,
+                            struct thread, elem);
+      if(otherWaiterThread->donee == thread_current()){
+        if (((&otherWaiterThread->donorelem)->prev != NULL) &&
+           ((&otherWaiterThread->donorelem)->next != NULL)){
+          list_remove(&otherWaiterThread->donorelem);
+        }
+        otherWaiterThread->donee = thread; 
+        list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
+      }
+
+      otherWaiterElem = list_prev(otherWaiterElem);
+    }
   }
-  thread->donee = NULL;
   set_effective_priority(thread_current());
 }
 
