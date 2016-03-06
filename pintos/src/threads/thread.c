@@ -626,7 +626,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  if (thread_mlfqs){
   old_level = intr_disable ();
   if (thread_mlfqs)
   {
@@ -638,7 +637,7 @@ init_thread (struct thread *t, const char *name, int priority)
         t->nice = thread_current ()->nice;
         t->recent_cpu = thread_current ()->recent_cpu;
       }
-    }
+    
     //list_push_back (&all_list, &t->allelem);
   }else{
     /* Added */
@@ -647,7 +646,6 @@ init_thread (struct thread *t, const char *name, int priority)
 
     /*********/
   }
-  old_level = intr_disable ();
   list_push_front (&all_list, &t->allelem);
 
   intr_set_level (old_level);

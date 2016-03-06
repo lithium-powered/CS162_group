@@ -377,19 +377,23 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
 //Should only be called when lock->holder != NULL
 void donate (struct lock *lock){
-  ASSERT(lock->holder != NULL);
-  ASSERT (intr_get_level () == INTR_OFF);
-  thread_current()->donee = lock->holder;
-  list_push_front((&lock->holder->donor_list), &thread_current()->donorelem);
-  set_effective_priority(lock->holder);
-
+  if (!thread_mlfqs){
+    ASSERT(lock->holder != NULL);
+    ASSERT (intr_get_level () == INTR_OFF);
+    thread_current()->donee = lock->holder;
+    list_push_front((&lock->holder->donor_list), &thread_current()->donorelem);
+    set_effective_priority(lock->holder);
+  }
 }
 
 void undonate(struct thread *thread){
-  ASSERT (intr_get_level () == INTR_OFF);
-  list_remove(&thread->donorelem);
-  set_effective_priority(thread->donee);
-  thread->donee = NULL;
+  if (!thread_mlfqs){
+
+    ASSERT (intr_get_level () == INTR_OFF);
+    list_remove(&thread->donorelem);
+    set_effective_priority(thread->donee);
+    thread->donee = NULL;
+  }
 }
 
 bool compare_effective_priority_donorelem(const struct list_elem *elem_A, 
