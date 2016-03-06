@@ -200,28 +200,20 @@ thread_tick (void)
     kernel_ticks++;
 
   /* Enforce preemption. */
-  if (++thread_ticks >= TIME_SLICE)
-    intr_yield_on_return ();
-  if (thread_mlfqs){
-    //Disable interrupts
-    intr_disable ();
-
-//update load avg and recent cpu PER 1 SECOND
+  if (!thread_mlfqs){
+    if (++thread_ticks >= TIME_SLICE)
+      intr_yield_on_return ();
+  }
+  else{
+    //update load avg and recent cpu PER 1 SECOND
     if (timer_ticks() % TIMER_FREQ == 0){ //(# of timer ticks since the OS booted) % (Number of timer interrupts per second)
-      //fixed_point_t a = load_avg;
       mlfqs_recalculate_loadavg();
-      //printf("%d",fix_compare(a,load_avg));
       thread_foreach(mlfqs_recalculate_recentcpu, NULL);
-      thread_foreach(mlfqs_recalculate_priority,NULL);  //Anytime recentcpu changes, recalculate all priorities
-      //list_sort(&(ready_list), &compare_priority, NULL); //Resort bc priorities have changed
     }
 
     // update priority PER 4 CLOCK TICKS
-    else if (timer_ticks() %(4) == 0){
-      //Similar to thread_foreach but only with ready_list threads
-      //if (t != idle_thread){
-        mlfqs_recalculate_priority(t, NULL);
-      //}
+    if (++thread_ticks >= TIME_SLICE){
+      mlfqs_recalculate_priority(t, NULL);
       //thread_foreach but only on ready list 
       struct list_elem *e;
       ASSERT (intr_get_level () == INTR_OFF);
@@ -229,30 +221,13 @@ thread_tick (void)
         struct thread *t = list_entry (e, struct thread, elem);
         mlfqs_recalculate_priority(t, NULL);
       }
-      //sort ready_list
-      list_sort(&(ready_list), &compare_priority, NULL);
-      //list_reverse(&ready_list);
-      //Do I need to re-enable interrupts here? TODO
-      //Need to make sure to yield if priority lower than first element on ready list
-    }
-
-    if (list_size(&ready_list) > 0) { //Yield on any recalculate
-      struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
-      if (t->priority <= firstready->priority){
-        //printf("yield");
-        intr_yield_on_return();
-      }
-    }
-
+      intr_yield_on_return();
+    }   
     if (t->status == THREAD_RUNNING && t!=idle_thread){ //t also cannot be the idle_thread
-       //update recent cpu if the thread is running
-        // Increase current thread's cpu usage by 1
-        fixed_point_t one = fix_int(1);
-        t->recent_cpu = fix_add (t->recent_cpu, one); 
+       //update recent cpu by 1 if the thread is running
+        t->recent_cpu = fix_add (t->recent_cpu, fix_int(1)); 
     }
-
   }
-  //Check to see if enough ticks have passed to place thread on ready
 }
 
 
@@ -681,9 +656,12 @@ next_thread_to_run (void)
     ASSERT (intr_get_level () == INTR_OFF);
     
     /* Added */
-    list_sort(&(ready_list), &compare_effective_priority, NULL);
+    if (!thread_mlfqs){
+      list_sort(&(ready_list), &compare_effective_priority, NULL);
+    }else{
+      list_sort(&(ready_list), &compare_priority, NULL);
+    }
     /*********/
-
     return list_entry (list_pop_back (&ready_list), struct thread, elem);
 }
 
