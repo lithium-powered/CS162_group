@@ -400,6 +400,7 @@ void undonate(struct thread *thread, struct semaphore *sema){
     while(otherWaiterElem != head){
       otherWaiterThread = list_entry (otherWaiterElem,
                             struct thread, elem);
+      ASSERT(otherWaiterThread->donee == thread_current());
       if (((&otherWaiterThread->donorelem)->prev != NULL) &&
          ((&otherWaiterThread->donorelem)->next != NULL)){
         list_remove(&otherWaiterThread->donorelem);
