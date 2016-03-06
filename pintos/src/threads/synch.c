@@ -257,10 +257,10 @@ lock_release (struct lock *lock)
 
   lock->holder = NULL;
 
-
-  list_sort(&(&lock->semaphore)->waiters, &compare_effective_priority, NULL);
-  undonate(&lock->semaphore);
-
+  if (!thread_mlfqs){
+    list_sort(&(&lock->semaphore)->waiters, &compare_effective_priority, NULL);
+    undonate(&lock->semaphore);
+  }
 
   sema_up (&lock->semaphore);
 
