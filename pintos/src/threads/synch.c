@@ -123,9 +123,10 @@ sema_up (struct semaphore *sema)
                                 struct thread, elem);
     thread_unblock (thread);
     if ((thread->donee != NULL)){  //might have to change? logic?
-      undonate(thread);
+      undonate(thread, sema);
     }
   }
+
   sema->value++;
 
 
@@ -387,14 +388,32 @@ void donate (struct lock *lock){
   }
 }
 
-void undonate(struct thread *thread){
-  if (!thread_mlfqs){
+void undonate(struct thread *thread, struct semaphore *sema){
+  ASSERT (intr_get_level () == INTR_OFF);
+  list_remove(&thread->donorelem);
 
-    ASSERT (intr_get_level () == INTR_OFF);
-    list_remove(&thread->donorelem);
-    set_effective_priority(thread->donee);
-    thread->donee = NULL;
+  struct list_elem *otherWaiterElem = NULL;
+  struct thread *otherWaiterThread = NULL;
+  struct list_elem *head = list_head(&sema->waiters);
+  if (!list_empty (&sema->waiters)){
+    otherWaiterElem = list_back(&sema->waiters);
+    while(otherWaiterElem != head){
+      otherWaiterThread = list_entry (otherWaiterElem,
+                            struct thread, elem);
+      if (((&otherWaiterThread->donorelem)->prev != NULL) &&
+         ((&otherWaiterThread->donorelem)->next != NULL)){
+        list_remove(&otherWaiterThread->donorelem);
+      }
+      otherWaiterThread->donee = thread; 
+      list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
+
+      otherWaiterElem = list_prev(otherWaiterElem);
+    }
+
   }
+
+  thread->donee = NULL;
+  set_effective_priority(thread_current());
 }
 
 bool compare_effective_priority_donorelem(const struct list_elem *elem_A, 
