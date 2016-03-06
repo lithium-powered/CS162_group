@@ -169,4 +169,7 @@ int get_effective_priority(struct thread *);
 bool compare_effective_priority(const struct list_elem *, 
   const struct list_elem *, void *aux);
 
+bool compare_priority(const struct list_elem *, 
+  const struct list_elem *, void *aux);
+
 #endif /* threads/thread.h */

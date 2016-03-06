@@ -122,10 +122,8 @@ sema_up (struct semaphore *sema)
     thread = list_entry (list_pop_back (&sema->waiters),
                                 struct thread, elem);
     thread_unblock (thread);
-    if ((thread->donee != NULL)){  //might have to change? logic?
-      undonate(thread);
-    }
   }
+
   sema->value++;
 
 
@@ -258,6 +256,19 @@ lock_release (struct lock *lock)
   old_level = intr_disable ();
 
   lock->holder = NULL;
+
+
+  list_sort(&(&lock->semaphore)->waiters, &compare_effective_priority, NULL);
+  struct thread *thread = NULL;
+  if (!list_empty (&(&lock->semaphore)->waiters)){
+    thread = list_entry (list_back (&(&lock->semaphore)->waiters),
+                                struct thread, elem);
+    if (thread_current()->donee != NULL){
+      undonate(thread, &lock->semaphore);
+    }
+  }
+
+
   sema_up (&lock->semaphore);
 
   intr_set_level (old_level);
@@ -385,11 +396,34 @@ void donate (struct lock *lock){
 
 }
 
-void undonate(struct thread *thread){
+void undonate(struct thread *thread, struct semaphore *sema){
   ASSERT (intr_get_level () == INTR_OFF);
   list_remove(&thread->donorelem);
-  set_effective_priority(thread->donee);
+
+  struct list_elem *otherWaiterElem = NULL;
+  struct thread *otherWaiterThread = NULL;
+  struct list_elem *head = list_head(&sema->waiters);
+  if (!list_empty (&sema->waiters)){
+    otherWaiterElem = list_back(&sema->waiters);
+    while(otherWaiterElem != head){
+      otherWaiterThread = list_entry (otherWaiterElem,
+                            struct thread, elem);
+      if(otherWaiterThread->donee != NULL){
+        if (((&otherWaiterThread->donorelem)->prev != NULL) &&
+           ((&otherWaiterThread->donorelem)->next != NULL)){
+          list_remove(&otherWaiterThread->donorelem);
+        }
+        otherWaiterThread->donee = thread; 
+        list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
+      }
+
+      otherWaiterElem = list_prev(otherWaiterElem);
+    }
+
+  }
   thread->donee = NULL;
+  set_effective_priority(thread_current());
+  
 }
 
 bool compare_effective_priority_donorelem(const struct list_elem *elem_A, 
