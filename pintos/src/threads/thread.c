@@ -220,6 +220,12 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if (thread_current ()->priority < t->priority)
+  { //yield if current thread priority is lower than newly created
+    ASSERT (!intr_context ());
+    thread_yield ();
+  }
+
   return tid;
 }
 
@@ -666,7 +672,7 @@ allocate_tid (void)
 //Has to be atomic
 void set_effective_priority(struct thread *thread){
   ASSERT (intr_get_level () == INTR_OFF);
-  
+  enum intr_level old_level = intr_disable ();
   if (!list_empty(&(thread->donor_list))){
     list_sort(&(thread->donor_list), &compare_effective_priority_donorelem, NULL);
     struct thread *thread_elem = list_entry (list_back(&(thread->donor_list)), 
@@ -680,6 +686,10 @@ void set_effective_priority(struct thread *thread){
   }else{
     thread->effective_priority = thread->priority;
   }
+  if (thread->donee != NULL){
+    set_effective_priority(thread->donee);
+  }
+  intr_set_level (old_level);
 }
 
 int get_effective_priority(struct thread *thread){
