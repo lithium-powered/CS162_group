@@ -113,10 +113,11 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-
-  int prev_priority = thread_get_priority();
-  list_sort(&sema->waiters, &compare_effective_priority, NULL);
-
+  int prev_priority;
+  if (!thread_mlfqs){
+    prev_priority = thread_get_priority();
+    list_sort(&sema->waiters, &compare_effective_priority, NULL);
+  }
   struct thread *thread = NULL;
   if (!list_empty (&sema->waiters)){
     thread = list_entry (list_pop_back (&sema->waiters),
@@ -129,9 +130,10 @@ sema_up (struct semaphore *sema)
 
   sema->value++;
 
-
-  if (prev_priority >= thread_get_priority()){
-    thread_yield();
+  if (!thread_mlfqs){
+    if (prev_priority >= thread_get_priority()){
+      thread_yield();
+    }
   }
   intr_set_level (old_level);
 }
@@ -378,12 +380,13 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 
 //Should only be called when lock->holder != NULL
 void donate (struct lock *lock){
-  ASSERT(lock->holder != NULL);
-  ASSERT (intr_get_level () == INTR_OFF);
-  thread_current()->donee = lock->holder;
-  list_push_front((&lock->holder->donor_list), &thread_current()->donorelem);
-  set_effective_priority(lock->holder);
-
+  if (!thread_mlfqs){
+    ASSERT(lock->holder != NULL);
+    ASSERT (intr_get_level () == INTR_OFF);
+    thread_current()->donee = lock->holder;
+    list_push_front((&lock->holder->donor_list), &thread_current()->donorelem);
+    set_effective_priority(lock->holder);
+  }
 }
 
 void undonate(struct thread *thread, struct semaphore *sema){

@@ -206,25 +206,22 @@ thread_tick (void)
     //Disable interrupts
     intr_disable ();
 
-    //update load avg and recent cpu PER 1 SECOND
+//update load avg and recent cpu PER 1 SECOND
     if (timer_ticks() % TIMER_FREQ == 0){ //(# of timer ticks since the OS booted) % (Number of timer interrupts per second)
+      //fixed_point_t a = load_avg;
       mlfqs_recalculate_loadavg();
+      //printf("%d",fix_compare(a,load_avg));
       thread_foreach(mlfqs_recalculate_recentcpu, NULL);
+      thread_foreach(mlfqs_recalculate_priority,NULL);  //Anytime recentcpu changes, recalculate all priorities
+      //list_sort(&(ready_list), &compare_priority, NULL); //Resort bc priorities have changed
     }
 
-    if (t->status == THREAD_RUNNING && t != idle_thread){
-       //update recent cpu if the thread is running
-        // Increase current thread's cpu usage by 1
-        fixed_point_t one = fix_int(1);
-        t->recent_cpu = fix_add (t->recent_cpu, one); 
-        //printf("recent_cpu:%d\n", fix_round(t->recent_cpu));
-    }
-    // update priority PER 4 SECONDS
-    if (timer_ticks() %(4) == 0){
+    // update priority PER 4 CLOCK TICKS
+    else if (timer_ticks() %(4) == 0){
       //Similar to thread_foreach but only with ready_list threads
-      if (t != idle_thread){
+      //if (t != idle_thread){
         mlfqs_recalculate_priority(t, NULL);
-      }
+      //}
       //thread_foreach but only on ready list 
       struct list_elem *e;
       ASSERT (intr_get_level () == INTR_OFF);
@@ -238,14 +235,20 @@ thread_tick (void)
       //Do I need to re-enable interrupts here? TODO
       //Need to make sure to yield if priority lower than first element on ready list
     }
-    if (list_size(&ready_list) > 0) {
+
+    if (list_size(&ready_list) > 0) { //Yield on any recalculate
       struct thread *firstready = list_entry(list_front(&ready_list), struct thread, elem);
       if (t->priority <= firstready->priority){
+        //printf("yield");
         intr_yield_on_return();
-        //printf("SWITCHED!! current:%d list:%d\n", t->priority, firstready->priority);
-      }// }else{
-      //   printf("current:%d list:%d\n", t->priority, firstready->priority);
-      // }
+      }
+    }
+
+    if (t->status == THREAD_RUNNING && t!=idle_thread){ //t also cannot be the idle_thread
+       //update recent cpu if the thread is running
+        // Increase current thread's cpu usage by 1
+        fixed_point_t one = fix_int(1);
+        t->recent_cpu = fix_add (t->recent_cpu, one); 
     }
 
   }
@@ -626,7 +629,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
-  if (thread_mlfqs){
   old_level = intr_disable ();
   if (thread_mlfqs)
   {
@@ -638,7 +640,7 @@ init_thread (struct thread *t, const char *name, int priority)
         t->nice = thread_current ()->nice;
         t->recent_cpu = thread_current ()->recent_cpu;
       }
-    }
+    
     //list_push_back (&all_list, &t->allelem);
   }else{
     /* Added */
@@ -647,7 +649,6 @@ init_thread (struct thread *t, const char *name, int priority)
 
     /*********/
   }
-  old_level = intr_disable ();
   list_push_front (&all_list, &t->allelem);
 
   intr_set_level (old_level);
