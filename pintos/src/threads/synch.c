@@ -113,10 +113,11 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-
-  int prev_priority = thread_get_priority();
-  list_sort(&sema->waiters, &compare_effective_priority, NULL);
-
+  int prev_priority;
+  if (!thread_mlfqs){
+    prev_priority = thread_get_priority();
+    list_sort(&sema->waiters, &compare_effective_priority, NULL);
+  }
   struct thread *thread = NULL;
   if (!list_empty (&sema->waiters)){
     thread = list_entry (list_pop_back (&sema->waiters),
@@ -128,10 +129,10 @@ sema_up (struct semaphore *sema)
   }
   sema->value++;
 
-
-  if (prev_priority >= thread_get_priority()){
-    //printf("yielding");
-    thread_yield();
+  if (!thread_mlfqs){
+    if (prev_priority >= thread_get_priority()){
+      thread_yield();
+    }
   }
   intr_set_level (old_level);
 }
