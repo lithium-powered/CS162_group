@@ -44,7 +44,7 @@ void cond_broadcast (struct condition *, struct lock *);
 /* 2/24 */
 void donate (struct lock *);
 
-void undonate(struct thread *, struct semaphore *);
+void undonate(struct thread *, struct lock *);
 
 bool compare_cond_waiters(const struct list_elem *, 
   const struct list_elem *, void *aux);

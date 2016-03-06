@@ -25,6 +25,7 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+#define THREAD_MAGIC 0xcd6abf4b
 
 /* Added 2/24 */
 /* Other place to potentially add static for use for Asleep Threads By Nurr - Made static 2/25 */
@@ -171,5 +172,7 @@ bool compare_effective_priority(const struct list_elem *,
 
 bool compare_priority(const struct list_elem *, 
   const struct list_elem *, void *aux);
+
+bool is_thread (struct thread *);
 
 #endif /* threads/thread.h */

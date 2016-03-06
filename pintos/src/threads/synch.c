@@ -66,6 +66,7 @@ sema_down (struct semaphore *sema)
   ASSERT (!intr_context ());
 
   old_level = intr_disable ();
+  ASSERT (is_thread (thread_current()));
   while (sema->value == 0) 
     {
       list_push_front (&sema->waiters, &thread_current ()->elem);
@@ -73,6 +74,7 @@ sema_down (struct semaphore *sema)
     }
   sema->value--;
   intr_set_level (old_level);
+  ASSERT (is_thread (thread_current()));
 }
 
 /* Down or "P" operation on a semaphore, but only if the
@@ -121,7 +123,9 @@ sema_up (struct semaphore *sema)
   if (!list_empty (&sema->waiters)){
     thread = list_entry (list_pop_back (&sema->waiters),
                                 struct thread, elem);
+    ASSERT (is_thread (thread));
     thread_unblock (thread);
+    ASSERT (is_thread (thread));
   }
 
   sema->value++;
@@ -212,11 +216,13 @@ lock_acquire (struct lock *lock)
   enum intr_level old_level;
   old_level = intr_disable ();
 
+  ASSERT (is_thread (thread_current()));
   if (lock->holder != NULL){
     donate(lock);
   }
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
+  ASSERT (is_thread (thread_current()));
 
   intr_set_level (old_level);
 }
@@ -263,9 +269,9 @@ lock_release (struct lock *lock)
   if (!list_empty (&(&lock->semaphore)->waiters)){
     thread = list_entry (list_back (&(&lock->semaphore)->waiters),
                                 struct thread, elem);
-    if (thread_current()->donee != NULL){
-      undonate(thread, &lock->semaphore);
-    }
+    ASSERT (is_thread (thread));
+    undonate(thread, lock);
+    ASSERT (is_thread (thread));
   }
 
 
@@ -396,29 +402,26 @@ void donate (struct lock *lock){
 
 }
 
-void undonate(struct thread *thread, struct semaphore *sema){
+void undonate(struct thread *thread, struct lock *lock){
   ASSERT (intr_get_level () == INTR_OFF);
   list_remove(&thread->donorelem);
+  struct semaphore *sema = &lock->semaphore;
 
   struct list_elem *otherWaiterElem = NULL;
   struct thread *otherWaiterThread = NULL;
   struct list_elem *head = list_head(&sema->waiters);
-  if (!list_empty (&sema->waiters)){
-    otherWaiterElem = list_back(&sema->waiters);
-    while(otherWaiterElem != head){
-      otherWaiterThread = list_entry (otherWaiterElem,
-                            struct thread, elem);
-      if(otherWaiterThread->donee != NULL){
-        if (((&otherWaiterThread->donorelem)->prev != NULL) &&
-           ((&otherWaiterThread->donorelem)->next != NULL)){
-          list_remove(&otherWaiterThread->donorelem);
-        }
-        otherWaiterThread->donee = thread; 
-        list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
-      }
-
-      otherWaiterElem = list_prev(otherWaiterElem);
+  ASSERT(!list_empty (&sema->waiters));
+  otherWaiterElem = list_back(&sema->waiters);
+  while(otherWaiterElem != head){
+    otherWaiterThread = list_entry (otherWaiterElem,
+                          struct thread, elem);
+    if (((&otherWaiterThread->donorelem)->prev != NULL) &&
+       ((&otherWaiterThread->donorelem)->next != NULL)){
+      list_remove(&otherWaiterThread->donorelem);
     }
+    otherWaiterThread->donee = thread; 
+    list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
+    otherWaiterElem = list_prev(otherWaiterElem);
 
   }
   thread->donee = NULL;
