@@ -374,6 +374,7 @@ cond_broadcast (struct condition *cond, struct lock *lock)
 }
 
 //Should only be called when lock->holder != NULL
+//Donate priority to lock holder.
 void donate (struct lock *lock){
   if (!thread_mlfqs){
     ASSERT(lock->holder != NULL);
@@ -384,6 +385,7 @@ void donate (struct lock *lock){
   }
 }
 
+//Releases lock donation
 void undonate(struct semaphore *sema){
   ASSERT (intr_get_level () == INTR_OFF);
   
@@ -406,10 +408,7 @@ void undonate(struct semaphore *sema){
                             struct thread, elem);
 
       if(otherWaiterThread->donee == thread_current()){
-        if (((&otherWaiterThread->donorelem)->prev != NULL) &&
-           ((&otherWaiterThread->donorelem)->next != NULL)){
-          list_remove(&otherWaiterThread->donorelem);
-        }
+        list_remove(&otherWaiterThread->donorelem);
         otherWaiterThread->donee = thread; 
         list_push_front(&thread->donor_list, &otherWaiterThread->donorelem);
       }

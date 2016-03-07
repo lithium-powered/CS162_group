@@ -48,8 +48,6 @@ static struct thread *initial_thread;
 /* Lock used by allocate_tid(). */
 static struct lock tid_lock;
 
-/* Nurr added March 3 */
-//static struct semaphore sema;
 
 /* Stack frame for kernel_thread(). */
 struct kernel_thread_frame 
@@ -108,7 +106,7 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&sleep_list);
   list_init (&all_list);
-  //sema_init(&sema, 0);
+
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
   init_thread (initial_thread, "main", PRI_DEFAULT);
@@ -760,8 +758,9 @@ allocate_tid (void)
   return tid;
 }
 
-
+/****** Added ******/
 //Has to be atomic
+//Recursively sets the effective_priority of a thread and the thread's donee.
 void set_effective_priority(struct thread *thread){
   ASSERT (intr_get_level () == INTR_OFF);
   enum intr_level old_level = intr_disable ();
@@ -784,10 +783,6 @@ void set_effective_priority(struct thread *thread){
   intr_set_level (old_level);
 }
 
-int get_effective_priority(struct thread *thread){
-  return thread->effective_priority;
-}
-
 bool compare_effective_priority(const struct list_elem *elem_A, 
   const struct list_elem *elem_B, void *aux UNUSED){
   struct thread *thread_elem_A = list_entry (elem_A, 
@@ -797,7 +792,6 @@ bool compare_effective_priority(const struct list_elem *elem_A,
   return thread_elem_A->effective_priority < thread_elem_B->effective_priority; 
 }
 
-/* Added */
 bool compare_sleeptime_priority(const struct list_elem *elem_A, 
   const struct list_elem *elem_B, void *aux UNUSED)
 {
