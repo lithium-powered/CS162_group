@@ -97,14 +97,6 @@ timer_sleep (int64_t ticks)
 
   intr_set_level (old_level);
 
-  //ASSERT (intr_get_level () == INTR_ON);
-
-  //Instead of this while loop, change so that thread's sleep_time count is initialized
-  //Call yield or potentially other function -> Checks that timer has a number and puts it into the list
-  //Change ticks so that it checks for new threads to throw on ready
-  //while (timer_elapsed (start) < ticks) 
-  //  thread_yield ();
-
   thread_yield ();
   //Assumption here is that thread_yield adds the thread to sleep list
 }

@@ -130,7 +130,6 @@ thread_start (void)
   sleep_time = 0;
   /* Start preemptive thread scheduling. */
   intr_enable ();
-
   /* Wait for the idle thread to initialize idle_thread. */
   sema_down (&idle_started);
 }
@@ -138,7 +137,6 @@ thread_start (void)
 static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
   //priority = PRI_MAX − (recent_cpu/4) − (nice × 2)
   if (t != idle_thread){
-    //t->priority = PRI_MAX - fix_round(fix_unscale(t->recent_cpu, 4)) - (t->nice * 2);
     fixed_point_t temp = fix_sub(fix_int(PRI_MAX),fix_unscale(t->recent_cpu, 4));
     t->priority = fix_trunc(fix_sub(temp,fix_int(t->nice * 2)));
     //check max/min
@@ -148,9 +146,6 @@ static void mlfqs_recalculate_priority(struct thread *t, void *aux UNUSED){
     else if (t->priority < PRI_MIN){
       t->priority = PRI_MIN;
     }
-    // printf("recent_cpu1:%d\n", fix_round(t->recent_cpu));
-    // printf("nice:%d\n", t->nice);
-    // printf("priority:%d\n\n", t->priority);
   }
 }
 static void mlfqs_recalculate_recentcpu(struct thread *t, void *aux UNUSED){
@@ -159,18 +154,16 @@ static void mlfqs_recalculate_recentcpu(struct thread *t, void *aux UNUSED){
     fixed_point_t doubleloadavg = fix_scale(load_avg,2);
     fixed_point_t q = fix_div(doubleloadavg, fix_add(doubleloadavg,fix_int(1)));
     fixed_point_t temp = fix_mul(q,t->recent_cpu);
-    t->recent_cpu = fix_add(temp,fix_int(t->nice)); //Need part 1 to update ready_list when threads sleep
+    t->recent_cpu = fix_add(temp,fix_int(t->nice)); 
   }
 }
 static void mlfqs_recalculate_loadavg(void){
   //load_avg = (59/60) × load_avg + (1/60) × ready_threads
   int ready_threads = list_size(&ready_list);
-  if (thread_current() != idle_thread){ //Need part 1 to update ready_list when threads sleep
+  if (thread_current() != idle_thread){
     ready_threads += 1;
   }
   load_avg = fix_add(fix_mul(load_avg, fix_frac(59,60)), fix_div(fix_int(ready_threads),fix_int(60)));
-  // printf("load_avg:%d\n", fix_round(load_avg));
-  // printf("ready_threads:%d\n", list_size(&));
 }
 
 bool compare_priority(const struct list_elem *elem_A, 
@@ -203,10 +196,10 @@ thread_tick (void)
   if (!thread_mlfqs){
     if (++thread_ticks >= TIME_SLICE)
       intr_yield_on_return ();
-  }
-  else{
+  } else{
     //update load avg and recent cpu PER 1 SECOND
-    if (timer_ticks() % TIMER_FREQ == 0){ //(# of timer ticks since the OS booted) % (Number of timer interrupts per second)
+    if (timer_ticks() % TIMER_FREQ == 0){ 
+      //(# of timer ticks since the OS booted) % (Number of timer interrupts per second)
       mlfqs_recalculate_loadavg();
       thread_foreach(mlfqs_recalculate_recentcpu, NULL);
     }
@@ -607,23 +600,18 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   if (thread_mlfqs)
   {
-      if (t == initial_thread){
-        t->nice = 0;
-        t->recent_cpu = fix_int(0);
-      }
-      else{
-        t->nice = thread_current ()->nice;
-        t->recent_cpu = thread_current ()->recent_cpu;
-      }
-    
-    //list_push_back (&all_list, &t->allelem);
-  }else{
-    /* Added */
+    if (t == initial_thread){
+      t->nice = 0;
+      t->recent_cpu = fix_int(0);
+    } else {
+      t->nice = thread_current ()->nice;
+      t->recent_cpu = thread_current ()->recent_cpu;
+    }  
+  } else {
     t->effective_priority = priority;
     list_init(&(t->donor_list));
-
-    /*********/
   }
+
   list_push_front (&all_list, &t->allelem);
 
   intr_set_level (old_level);
@@ -669,11 +657,13 @@ static void
 sleep_to_ready (void) 
 { 
   enum intr_level old_level = intr_disable ();
-  //uint32_t i;
+
   list_sort(&sleep_list, &compare_sleeptime_priority, NULL);
   struct thread *front;
+
   while (!list_empty(&sleep_list)){
     front = list_entry(list_front(&sleep_list), struct thread, elem);
+    
     if (front->sleep_time <= timer_ticks()){
       list_push_front(&ready_list, list_pop_front(&sleep_list));
       front->sleep_time = 0;

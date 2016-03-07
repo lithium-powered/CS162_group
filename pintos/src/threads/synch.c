@@ -126,10 +126,10 @@ sema_up (struct semaphore *sema)
 
   sema->value++;
 
-
   if (prev_priority >= thread_get_priority()){
     thread_yield();
   }
+
   intr_set_level (old_level);
 }
 
@@ -369,15 +369,9 @@ cond_broadcast (struct condition *cond, struct lock *lock)
   ASSERT (cond != NULL);
   ASSERT (lock != NULL);
 
-
   while (!list_empty (&cond->waiters))
     cond_signal (cond, lock);
-
-
-
 }
-
-/******* Added Code*******/
 
 //Should only be called when lock->holder != NULL
 void donate (struct lock *lock){
@@ -392,9 +386,11 @@ void donate (struct lock *lock){
 
 void undonate(struct semaphore *sema){
   ASSERT (intr_get_level () == INTR_OFF);
+  
   if (!list_empty (&sema->waiters)){
     struct thread *thread = list_entry (list_back (&sema->waiters),
-                                  struct thread, elem);
+                                        struct thread, elem);
+    
     if (thread->donee == thread_current()){
       thread->donee = NULL;
       list_remove(&thread->donorelem);
@@ -404,9 +400,11 @@ void undonate(struct semaphore *sema){
     struct thread *otherWaiterThread = NULL;
     struct list_elem *head = list_head(&sema->waiters);
     otherWaiterElem = list_prev(list_back(&sema->waiters));
+
     while(otherWaiterElem != head){
       otherWaiterThread = list_entry (otherWaiterElem,
                             struct thread, elem);
+
       if(otherWaiterThread->donee == thread_current()){
         if (((&otherWaiterThread->donorelem)->prev != NULL) &&
            ((&otherWaiterThread->donorelem)->next != NULL)){
