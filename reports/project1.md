@@ -4,7 +4,6 @@ Final Report for Project 1: Threads
 #162 Project 1 Final Report
   
 ##Design Changes
-=====
  
 ###Part 1:
 + Originally had planned to implement everything using semaphores including the sema up waking and sema down sleeping function. During the design, had many of the variables set inside a semaphore struct that was custom made for the purpose of the timer_sleep function
@@ -28,7 +27,6 @@ Final Report for Project 1: Threads
  
                                  	                                                             	
 ## Reflection
-=====
  
 Albert: 
 + Co-coded part 3
