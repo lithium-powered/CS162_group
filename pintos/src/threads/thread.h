@@ -26,14 +26,6 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
-/* Added 2/24 */
-/* Other place to potentially add static for use for Asleep Threads By Nurr - Made static 2/25 */
-struct thread_list_elem
-  {
-    struct thread *thread; //Thread value stored in this node
-    struct list_elem elem; //Points to prev and next elem in list
-  };
-
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -103,18 +95,6 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    /* Added 2/24*/
-    struct semaphore *sema_sleep; // initialize with value 0 
-    int64_t sleep_time;                 /* Sleep time if thread is asleep. */
-    struct thread *donee;
-    struct list_elem donorelem; //added to donor_list of donee
-    struct list donor_list;
-    int effective_priority;
-
-    /*Annie Part 3 instance variables*/
-    int nice;
-    fixed_point_t recent_cpu;
-
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
@@ -122,7 +102,6 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
-
   };
 
 /* If false (default), use round-robin scheduler.
@@ -160,16 +139,5 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
-bool compare_sleeptime_priority(const struct list_elem *, 
-  const struct list_elem *, void *aux);
-
-/* Added */
-void set_effective_priority(struct thread *);
-int get_effective_priority(struct thread *);
-bool compare_effective_priority(const struct list_elem *, 
-  const struct list_elem *, void *aux);
-
-bool compare_priority(const struct list_elem *, 
-  const struct list_elem *, void *aux);
 
 #endif /* threads/thread.h */
