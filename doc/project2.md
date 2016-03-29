@@ -43,16 +43,14 @@ void execute(syscall, [args]){}
 - Step 1: Thread makes a syscall with appropriate arguments
 - Step 2: OS checks if user stack pointer is invalid or too close to page boundary, then copies arguments supplied by the caller onto the kernel stack and validates each argument
 - Step 3: OS executes the syscall using syscall equivalent functions (from /lib/user/syscall.c):and returns the answer to the thread (or exits the thread if it was a terminal syscall)
+- Invalid memory accesses - null pointers, invalid pointers, pointers to kernel address space, pointers to other user program’s memory space for which the current program does not have permission to access, half-valid accesses on page boundaries
+We should terminate user program in all of these cases.
 
 ### 3) Synchronization:
 Only one thread should be writing to the stack at a time (but many threads can read at a time as long as readers and writers are not accessing the stack at the same time), so use conditional variables to make a readers and writers-style write-lock to the stack.
 
 ### 4) Rationale:
 The implementation is very straightforward because we follow the syscall process described in lecture. The readers and writers conditional variables access to the stack ensures thread-safe stack writes without starving any threads (allowing many readers to access at the same time). We have been careful to account for all possible edge cases before copying arguments to the kernel to ensure we do not corrupt the kernel with bad data or invalid memory accesses from the process.
-
-### 5) Edge cases:
-Invalid memory accesses - null pointers, invalid pointers, pointers to kernel address space, pointers to other user program’s memory space for which the current program does not have permission to access, half-valid accesses on page boundaries
-We should terminate user program in all of these cases.
 
 
 
@@ -80,9 +78,6 @@ The main synchronization risk is that files are not threadsafe (only one thread 
 ### 4) Rationale:
 Our design is simple and closely follows the specs as we look to implement each function and call them within the syscall_handler. By using the recommended strategy of a global lock, we guarantee thread safety. However, this is a very simple synchronization and as a result we may be losing some performance.
 
-### 5) Edge Cases: 
-Shared files between multiple user programs?
-
 
 # Questions:
 
@@ -93,6 +88,6 @@ This test invokes movl to copy an invalid address (an address significantly belo
 Name of test: sc-bad-arg in file sc-bad-arg.c
 This test moves the stack pointer %esp to the very top of the stack and then places the syscall number for SYS_EXIT at the top of the stack where the stack pointer is pointing (line 14). It then attempts to invoke the syscall (line 15). Because the arguments for the syscall are stored after the syscall itself in memory, the arguments to this SYS_EXIT call are above the user process space and should not be allowed to be accessed; thus, the test expects the process to exit immediately with a -1 exit code (signifying an error)
 ### Question 3:
-I don’t know!
+Testing on the practice syscall is slim. Including a test suite that ensures that calling practice with NULL or non-integer values would ensure that the syscall functions as it should. For example, a test that checks calling practice("Potato") should terminate the user process as opposed to executing the addition between string and integer value 1.
 
 
