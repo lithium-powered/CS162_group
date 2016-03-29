@@ -88,6 +88,5 @@ This test invokes movl to copy an invalid address (an address significantly belo
 Name of test: sc-bad-arg in file sc-bad-arg.c
 This test moves the stack pointer %esp to the very top of the stack and then places the syscall number for SYS_EXIT at the top of the stack where the stack pointer is pointing (line 14). It then attempts to invoke the syscall (line 15). Because the arguments for the syscall are stored after the syscall itself in memory, the arguments to this SYS_EXIT call are above the user process space and should not be allowed to be accessed; thus, the test expects the process to exit immediately with a -1 exit code (signifying an error)
 ### Question 3:
-Testing on the practice syscall is slim. Including a test suite that ensures that calling practice with NULL or non-integer values would ensure that the syscall functions as it should. For example, a test that checks calling practice("Potato") should terminate the user process as opposed to executing the addition between string and integer value 1.
-
+Reading from stdout or writing to stdin is a tested process that shouldn't be permitted. However since it is possible to duplicate a file descriptor, we should test that the new file descriptor still throws the same errors, terminating the process and returning -1.
 
