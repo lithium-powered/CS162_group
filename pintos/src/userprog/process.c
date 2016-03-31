@@ -226,8 +226,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
 
+  /* Added */
+  /* Get argv[0] from file to get argument to pass into filesys_open */
+  char *saveptr;
+  char fileNameRep[64];
+  memcpy(fileNameRep, file_name, strlen(file_name)+1);
+  char *arg = strtok_r(fileNameRep, " ", &saveptr);
+
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (arg);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -313,11 +320,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Push arguments onto stack. */
   int argc = 0;
   char *argv[33];
-  char *saveptr;
-  char fileNameRep[64];
-  memcpy(fileNameRep, file_name, strlen(file_name)+1);
   
-  char *arg = strtok_r(fileNameRep, " ", &saveptr);
   int argSize = strlen(arg) + 1;
   *esp = (char *) *esp - argSize;
   memcpy(*esp, arg, argSize);
