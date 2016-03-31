@@ -319,6 +319,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Push arguments onto stack. */
   int argc = 0;
+  //Max of 32 arguments are allowed.
+  //Do we need to add checks for stack limit?
   char *argv[33];
   
   int argSize = strlen(arg) + 1;
