@@ -310,6 +310,40 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 
+  /* Push arguments onto stack. */
+  int argc = 0;
+  char *argv[33];
+  char *saveptr;
+  char fileNameRep[64];
+  memcpy(fileNameRep, file_name, strlen(file_name)+1);
+  
+  char *arg = strtok_r(fileNameRep, " ", &saveptr);
+  int argSize = strlen(arg) + 1;
+  *esp = (char *) *esp - argSize;
+  memcpy(*esp, arg, argSize);
+  argv[argc] = (char *) *esp;
+  argc++;
+  while((arg=strtok_r(NULL, " ", &saveptr)) != NULL){
+    argSize = strlen(arg) + 1;
+    *esp = (char *) *esp - argSize;
+    memcpy(*esp, arg, argSize);
+    argv[argc] = (char *) *esp;
+    argc++;
+  }
+  argv[argc] = NULL;
+  *esp = (char *) *esp - ((unsigned int)*esp % 4);
+
+  int argByteShift = 4*(argc+1);
+  *esp = (char *) *esp - argByteShift;
+  memcpy(*esp, argv, argByteShift);
+  saveptr = (char *) *esp;
+
+  *esp = (char *) *esp - 4;
+  memcpy(*esp, &saveptr, 4);
+  *esp = (char *) *esp - 4;
+  memcpy(*esp, &argc, 4);
+  *esp = (char *) *esp - 4;
+
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
