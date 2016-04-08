@@ -53,12 +53,10 @@ static void syscall_handler (struct intr_frame *f UNUSED)
   //printf ("%d\n", args[1]);
 
   if (args[0] == SYS_EXIT) {
-  	//check_args(f, 1);
     f->eax = args[1];
-    exit(args[1]);
-    // printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
-    // thread_exit();
-
+    check_args(f,1);
+    printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
+    thread_exit();
   }
 
   //Halt
@@ -130,15 +128,17 @@ static void syscall_handler (struct intr_frame *f UNUSED)
   
 }
 
-// void check_args(struct intr_frame *f, int n){
-// 	int i;
-//   	for (i = 1; i <= n; i++){
-//   		int *ptr = (int *)f->esp +i;
-// 	  	if (!is_user_vaddr(ptr) || ptr < PHYS_BASE){
-// 	  		exit(-1);
-// 	  	}
-//   	}
-// }
+void check_args(struct intr_frame *f, int n){
+ 	int i;
+   	for (i = 0; i <= n; i++){
+   		int *ptr = (int *)f->esp +4*i;
+   		//printf("%d\n",ptr);
+   		//printf("%d\n", PHYS_BASE);
+ 	  	if (!is_user_vaddr(ptr) || ptr > PHYS_BASE){
+ 	  		exit(-1);
+ 	  	}
+   	}
+ }
 
 int ptr_check(const void *vaddr){ //check for valid address
 	if (is_user_vaddr(vaddr)){
