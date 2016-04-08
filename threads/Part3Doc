@@ -1,0 +1,26 @@
+Documentation
+
+
+Thread.h: Added recent_cpu and nice as instance variables
+Thread.c: Added load_avg as class variable
+
+Thread.c: Modified thread_get_nice, thread_set_nice, thread_get_recent_cpu, thread_get_load_avg to edit/return
+correct values.
+
+Modified thread_tick to re-calculate priority values for all threads on every fourth tick and then re-sort the ready list. Use priority variable as the mlfqs priority and ready_list as the queue.
+
+Added mlfqs_recalculate function to compute new priority value from formula.
+Added compare_priority function as the sorting function for ready_list.
+
+Recalculate load_avg and recent_cpu once per second.
+Recalculate priority every 4 seconds
+
+Implemented mlfqs_recalculate_priority
+Implemented mlfqs_recalculate_loadavg
+Implemented mlfqs_recalculate_recentcpu
+
+FIXED get/set values with proper use of fixed points.
+
+To Do
+Figure out interrupt enabling/disabling.
+thread_set_nice edge case
