@@ -74,15 +74,21 @@ static void syscall_handler (struct intr_frame *f UNUSED)
 
   //COMMENT ME OUT TO SPEED UP TESTING
   //Exec
-  // if (args[0] == SYS_EXEC){
-  // 	tid_t pid = process_execute(&args[1]);
-  // 	if (pid==TID_ERROR){
-  // 		f->eax = -1;
-  // 	}
-  // 	else{
-  // 		f->eax = pid;
-  // 	}
-  // }
+  if (args[0] == SYS_EXEC){
+  //check if file_name exists
+  	if (filesys_open(args[1])==NULL){
+    	f->eax = -1;
+  	}
+  	else{
+  		tid_t pid = process_execute(&args[1]);
+	  	if (pid==TID_ERROR){
+  			f->eax = -1;
+  		}
+  		else{
+  			f->eax = pid;
+  		}
+  	}
+  }
   //COMMENT ME OUT TO SPEED UP TESTING
 
 
