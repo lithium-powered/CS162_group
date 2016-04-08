@@ -41,10 +41,20 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Put in correct name for thread */
+  char *fn_copy2;
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy2 == NULL)
+    return TID_ERROR;
+  strlcpy (fn_copy2, file_name, PGSIZE);
+  char *saveptr;
+  const char *arg = strtok_r(fn_copy2, " ", &saveptr);
+  palloc_free_page (fn_copy2);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+    palloc_free_page (fn_copy);
   return tid;
 }
 
@@ -220,6 +230,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  /* Added Declarations */
+  char *fn_copy = NULL;
+  char *saveptr;
+  char *arg;
+  size_t argc;
+  size_t argSize;
+  /* Max of 32 arguments are allowed. */
+  char *argv[33];
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -227,11 +246,34 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Added */
+  /* Check assertions about the arguments */
+  argc = 0;
+  argSize = 0;
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    goto done;
+  strlcpy (fn_copy, file_name, PGSIZE);
+  arg = strtok_r(fn_copy, " ", &saveptr);
+  argSize += strlen(arg) + 1;
+  argc++;
+  while((arg=strtok_r(NULL, " ", &saveptr)) != NULL){
+    argSize += strlen(arg) + 1;
+    argc++;
+  }
+  palloc_free_page(fn_copy);
+  fn_copy = NULL;
+  /* if more than 32 arguments or will pass stack limit, fail */
+  if ((argc > 32) || 
+    ((argSize+(4-(argSize)%4)%4+(argc+4)*4) > 256)){
+    goto done;
+  }
+
   /* Get argv[0] from file to get argument to pass into filesys_open */
-  char *saveptr;
-  char fileNameRep[64];
-  memcpy(fileNameRep, file_name, strlen(file_name)+1);
-  char *arg = strtok_r(fileNameRep, " ", &saveptr);
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    goto done;
+  strlcpy (fn_copy, file_name, PGSIZE);
+  arg = strtok_r(fn_copy, " ", &saveptr);
 
   /* Open executable file. */
   file = filesys_open (arg);
@@ -318,12 +360,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
 
   /* Push arguments onto stack. */
-  int argc = 0;
-  //Max of 32 arguments are allowed.
-  //Do we need to add checks for stack limit?
-  char *argv[33];
   
-  int argSize = strlen(arg) + 1;
+  argc = 0;
+  argSize = strlen(arg) + 1;
   *esp = (char *) *esp - argSize;
   memcpy(*esp, arg, argSize);
   argv[argc] = (char *) *esp;
@@ -356,6 +395,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
+
+  /* if we palloc a page, free it */
+  if (fn_copy != NULL)
+    palloc_free_page(fn_copy);
+
   file_close (file);
   return success;
 }
