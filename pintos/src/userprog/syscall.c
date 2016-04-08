@@ -16,6 +16,7 @@ static void syscall_handler (struct intr_frame *);
 
 //Task3
 struct lock filesys_globlock;
+//void check_args(struct intr_frame *f, int n);
 int ptr_check(const void *vaddr);
 struct file* get_file_from_fd(int fd);
 void exit(int status);
@@ -49,10 +50,15 @@ static void syscall_handler (struct intr_frame *f UNUSED)
   
   uint32_t* args = ((uint32_t*) f->esp);
   //printf("System call number: %d\n", args[0]);
+  //printf ("%d\n", args[1]);
+
   if (args[0] == SYS_EXIT) {
+  	//check_args(f, 1);
     f->eax = args[1];
-    printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
-    thread_exit();
+    exit(args[1]);
+    // printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
+    // thread_exit();
+
   }
 
   //Halt
@@ -70,15 +76,15 @@ static void syscall_handler (struct intr_frame *f UNUSED)
 
   //COMMENT ME OUT TO SPEED UP TESTING
   //Exec
-  if (args[0] == SYS_EXEC){
-  	tid_t pid = process_execute(&args[1]);
-  	if (pid==TID_ERROR){
-  		f->eax = -1;
-  	}
-  	else{
-  		f->eax = pid;
-  	}
-  }
+  // if (args[0] == SYS_EXEC){
+  // 	tid_t pid = process_execute(&args[1]);
+  // 	if (pid==TID_ERROR){
+  // 		f->eax = -1;
+  // 	}
+  // 	else{
+  // 		f->eax = pid;
+  // 	}
+  // }
   //COMMENT ME OUT TO SPEED UP TESTING
 
 
@@ -124,6 +130,15 @@ static void syscall_handler (struct intr_frame *f UNUSED)
   
 }
 
+// void check_args(struct intr_frame *f, int n){
+// 	int i;
+//   	for (i = 1; i <= n; i++){
+//   		int *ptr = (int *)f->esp +i;
+// 	  	if (!is_user_vaddr(ptr) || ptr < PHYS_BASE){
+// 	  		exit(-1);
+// 	  	}
+//   	}
+// }
 
 int ptr_check(const void *vaddr){ //check for valid address
 	if (is_user_vaddr(vaddr)){
@@ -148,6 +163,12 @@ struct file* get_file_from_fd(int fd){
 }
 
 void exit(int status){
+	struct thread *t = thread_current();
+	while (!list_empty (&t->fd_list)){
+		struct list_elem *i = list_begin(&t->fd_list);
+		close(list_entry(i, struct fd_elem, elem)->fd);
+	}
+
     printf("%s: exit(%d)\n", (char *)&thread_current ()->name, status); //warning fix
     thread_exit();
 }
