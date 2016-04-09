@@ -23,6 +23,7 @@ static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int status[50];
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -30,9 +31,10 @@ int status[50];
 
 process_execute (const char *file_name) 
 {
+
   struct file *f = filesys_open(file_name);
   if (f!=NULL){
-    //prevent other threads from writing to the executables
+    //prevent other threads from writing to the executable
     file_deny_write(f);
   }
 
@@ -52,6 +54,7 @@ process_execute (const char *file_name)
   char fileNameRep[64];
   memcpy(fileNameRep, file_name, strlen(file_name)+1);
 
+
   const char *arg = strtok_r(fileNameRep, " ", &saveptr);
 
   /* Create a new thread to execute FILE_NAME. */
@@ -65,6 +68,7 @@ process_execute (const char *file_name)
   printf("og tid: %d\n",tid);*/
   status[tid] = -2;
   //printf("%d\n",status[tid]);
+
   return tid;
 }
 
@@ -136,7 +140,7 @@ process_exit (void)
 {
   struct thread *cur = thread_current ();
   uint32_t *pd;
-  status[thread_tid()] = 0;
+
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

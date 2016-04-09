@@ -287,7 +287,6 @@ thread_exit (void)
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
-
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and

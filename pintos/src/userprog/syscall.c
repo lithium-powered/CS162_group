@@ -83,6 +83,7 @@ static void syscall_handler (struct intr_frame *f UNUSED)
   	}
   	else{
   		tid_t pid = process_execute(args[1]);
+
 	  	if (pid==TID_ERROR){
   			f->eax = -1;
   		}
@@ -99,6 +100,7 @@ static void syscall_handler (struct intr_frame *f UNUSED)
   	// while (process_wait(args[1])==-2){
   	// }
   	// f->eax = status[args[1]];
+
   }
 
 
@@ -266,7 +268,7 @@ int write (int fd, const void *buffer, unsigned size) {
 		return size;
 	}
 	struct file *f = get_file_from_fd(fd);
-	//printf("%d\n", check_deny_write(f));
+
 	if (f){
 		int toReturn = file_write(f,buffer,size);
 		lock_release(&filesys_globlock);
