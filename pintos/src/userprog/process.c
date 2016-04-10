@@ -62,7 +62,9 @@ process_execute (const char *file_name)
   char fileNameRep[64];
   memcpy(fileNameRep, file_name, strlen(file_name)+1);
   const char *arg = strtok_r(fileNameRep, " ", &saveptr);
-
+  if (filesys_open(arg)==NULL){
+    return TID_ERROR;
+  }
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR){
