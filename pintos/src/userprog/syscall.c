@@ -262,6 +262,7 @@ int read (int fd, void *buffer, unsigned size) {
 
 int write (int fd, const void *buffer, unsigned size) {
 	lock_acquire(&filesys_globlock);
+	int a;
 	if (fd == STDOUT_FILENO){ //edge case to STDOUT
 		putbuf(buffer, size);
 		lock_release(&filesys_globlock);

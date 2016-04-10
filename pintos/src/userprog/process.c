@@ -25,6 +25,7 @@ struct child{
   struct semaphore wait;
   int status;
   tid_t child_id;
+  int waited; //0 if never, 1 if has waited before
 };
 
 
@@ -76,6 +77,7 @@ process_execute (const char *file_name)
   sema_init(&c->wait,0);
   c->child_id = tid;
   c->status = -2;
+  c->waited = 0;
   if (tid == TID_ERROR){
     c->status = -1;
   }
@@ -138,15 +140,18 @@ process_wait (tid_t child_tid UNUSED)
       if (c->child_id == child_tid){
         struct semaphore *s = &c->wait;
         //printf("%d\n",list_size(&(s->waiters)));
-        if (list_size(&(s->waiters))==1){
+        if (c->waited == 1){
           return -1;
         }
         //printf("sema down");
         if (c->status==-2){
+          c->waited = 1;
           sema_down(&c->wait);
           return c->status;
         }
-
+        else{
+          return c->status;
+        }
       }
     }
   return -1;
