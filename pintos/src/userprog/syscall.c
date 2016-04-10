@@ -12,6 +12,14 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 
+struct child{
+  struct list_elem elem;
+  struct semaphore wait;
+  int status;
+  tid_t child_id;
+};
+
+
 static void syscall_handler (struct intr_frame *);
 
 //Task3
@@ -56,7 +64,8 @@ static void syscall_handler (struct intr_frame *f UNUSED)
     f->eax = args[1];
     check_args(f,1);
     printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
-    thread_exit();
+
+    thread_exit(args[1]);
   }
 
   //Halt
@@ -80,7 +89,7 @@ static void syscall_handler (struct intr_frame *f UNUSED)
     	f->eax = -1;
   	}
   	else{
-  		tid_t pid = process_execute(&args[1]);
+  		tid_t pid = process_execute(args[1]);
 	  	if (pid==TID_ERROR){
   			f->eax = -1;
   		}
@@ -94,7 +103,8 @@ static void syscall_handler (struct intr_frame *f UNUSED)
 
   //Wait
   if (args[0] == SYS_WAIT){
-
+  	int status = process_wait(args[1]);
+  	f->eax = status;
   }
 
 
@@ -176,7 +186,7 @@ void exit(int status){
 	}
 
     printf("%s: exit(%d)\n", (char *)&thread_current ()->name, status); //warning fix
-    thread_exit();
+    thread_exit(status);
 }
 
 bool create (const char *file, unsigned initial_size) {

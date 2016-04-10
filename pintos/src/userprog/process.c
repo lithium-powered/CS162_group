@@ -18,6 +18,15 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
+
+struct child{
+  struct list_elem elem;
+  struct semaphore wait;
+  int status;
+  tid_t child_id;
+};
+
 
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
@@ -56,8 +65,20 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR)
+  if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
+  }
+
+  //Task 2 add this new thread onto current thread's child list
+  struct child *c = (struct child*)malloc(sizeof(struct child));
+  sema_init(&c->wait,0);
+  c->child_id = tid;
+  c->status = -2;
+  if (tid == TID_ERROR){
+    c->status = -1;
+  }
+  //printf("we are trying to push back on the list of %s\n", thread_current()->name);
+  list_push_back(&thread_current()->child_list, &c->elem);
   return tid;
 }
 
@@ -80,7 +101,7 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success) 
-    thread_exit ();
+    thread_exit (-1);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -104,21 +125,44 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  struct thread *cur = thread_current();
+  struct list_elem *e;
+
+  for (e = list_begin (&cur->child_list); e != list_end (&cur->child_list);
+       e = list_next (e))
+    {
+      struct child *c = list_entry (e, struct child, elem);
+      //printf("%d\n",child_tid);
+      if (c->child_id == child_tid){
+        struct semaphore *s = &c->wait;
+        //printf("%d\n",list_size(&(s->waiters)));
+        if (list_size(&(s->waiters))==1){
+          return -1;
+        }
+        //printf("sema down");
+        if (c->status==-2){
+          sema_down(&c->wait);
+          return c->status;
+        }
+
+      }
+    }
+  return -1;
   sema_down (&temporary);
   return 0;
 }
 
 /* Free the current process's resources. */
 void
-process_exit (void)
+process_exit (int status)
 {
-  struct thread *cur = thread_current ();
-  uint32_t *pd;
+   struct thread *cur = thread_current ();
+   uint32_t *pd;
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  pd = cur->pagedir;
-  if (pd != NULL) 
+   pd = cur->pagedir;
+   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set
          cur->pagedir to NULL before switching page directories,
@@ -132,6 +176,23 @@ process_exit (void)
       pagedir_destroy (pd);
     }
   sema_up (&temporary);
+  //***************************
+  //struct thread *cur = thread_current();
+  struct thread *parent = cur->parent;
+
+  struct list_elem *e;
+
+  for (e = list_begin (&parent->child_list); e != list_end (&parent->child_list);
+     e = list_next (e))
+  {
+    struct child *c = list_entry (e, struct child, elem);
+    if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
+      c->status = status;
+      sema_up(&c->wait);
+    }
+  }
+
+     
 }
 
 /* Sets up the CPU for running user code in the current
