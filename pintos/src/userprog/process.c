@@ -397,6 +397,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   arg = strtok_r(fn_copy, " ", &saveptr);
 
   /* Open executable file. */
+  /* If we successfully open then we deny writes to that file*/
   file = filesys_open (arg);
   if (file == NULL) 
     {

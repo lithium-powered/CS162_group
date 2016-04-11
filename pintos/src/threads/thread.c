@@ -477,13 +477,14 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
 
-  list_init(&t->fd_list); //For Task 3.
-  t->fd = 2; /* Initialize as 2 for minimum. File descriptors numbered 0 and 1 are reserved for the console: 
-  fd 0 (STDIN_FILENO) is standard input, fd 1 (STDOUT_FILENO) is standard output. 
-  The open system call will never return either of these file descriptors */
-
   //Task 3
-  t->cur_exec_file = NULL;
+  list_init(&t->fd_list);
+  /* Initialize as 2 for minimum. 
+  fd 0 (STDIN_FILENO)
+  fd 1 (STDOUT_FILENO)*/
+  t->fd = 2;
+  /* Initialize current executing file */
+  t->cur_exec_file = NULL; 
   
   intr_set_level (old_level);
 }
