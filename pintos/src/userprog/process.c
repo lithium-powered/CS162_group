@@ -26,6 +26,8 @@ struct child{
   int status;
   tid_t child_id;
   int waited; //0 if never, 1 if has waited before
+  int memory;
+  struct lock memory_lock;
 };
 
 
@@ -66,15 +68,16 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy2);
     return TID_ERROR;
   }
+
+  struct child *c = (struct child*)malloc(sizeof(struct child));
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy, c);
   palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
   }
 
   //Task 2 add this new thread onto current thread's child list
-  struct child *c = (struct child*)malloc(sizeof(struct child));
   sema_init(&c->wait,0);
   c->child_id = tid;
   c->status = -2;
@@ -82,6 +85,8 @@ process_execute (const char *file_name)
   if (tid == TID_ERROR){
     c->status = -1;
   }
+  c->memory = 2;
+  lock_init(&c->memory_lock);
   //printf("we are trying to push back on the list of %s\n", thread_current()->name);
   list_push_back(&thread_current()->child_list, &c->elem);
   return tid;
@@ -142,6 +147,7 @@ process_wait (tid_t child_tid UNUSED)
         struct semaphore *s = &c->wait;
         //printf("%d\n",list_size(&(s->waiters)));
         if (c->waited == 1){
+         // printf("already waited on you");
           return -1;
         }
         //printf("sema down");
@@ -155,6 +161,7 @@ process_wait (tid_t child_tid UNUSED)
         }
       }
     }
+  //printf("couldn't find you");
   return -1;
   sema_down (&temporary);
   return 0;
@@ -194,18 +201,55 @@ process_exit (int status)
   struct thread *parent = cur->parent;
 
   struct list_elem *e;
-
-  for (e = list_begin (&parent->child_list); e != list_end (&parent->child_list);
-     e = list_next (e))
-  {
-    struct child *c = list_entry (e, struct child, elem);
-    if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
-      c->status = status;
-      sema_up(&c->wait);
+  struct child *c;
+  struct list templist;
+  list_init(&templist);
+  while (!list_empty (&cur->child_list))
+     {
+      e = list_pop_front (&cur->child_list);
+      c = list_entry(e, struct child, elem);
+      while (lock_try_acquire(&c->memory_lock)!=true){
+      }
+      c->memory = c->memory - 1;
+      lock_release(&c->memory_lock);
+    if (c->memory == 0){
+      list_remove(e);
+      free(c);
+    }
+    else{
+      list_push_back(&templist, &e);
     }
   }
+  while (!list_empty (&templist))
+     {
+      e = list_pop_front (&templist);
+      list_push_back(&cur->child_list, &e);
+    }
 
-     
+   for (e = list_begin (&parent->child_list); e != list_end (&parent->child_list);
+     e = list_next (e))
+  {
+      c = list_entry(e, struct child, elem);
+      if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
+        c->status = status;
+        while (lock_try_acquire(&c->memory_lock)!=true){
+        }
+        c->memory = c->memory - 1;
+        lock_release(&c->memory_lock);
+
+        if (c->memory == 0){
+          list_remove(e);
+          free(c);
+          break;
+        }
+        else{
+          sema_up(&c->wait);
+          break;
+        }
+      }
+  }
+
+   
 }
 
 /* Sets up the CPU for running user code in the current

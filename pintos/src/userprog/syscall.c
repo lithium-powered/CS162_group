@@ -203,7 +203,6 @@ int open (const char *file) {
 	lock_acquire(&filesys_globlock);
 	struct file *f = filesys_open(file);
 	if (f){
-		//printf("open");
 		struct thread *t = thread_current();
 		struct fd_elem *fde = (struct fd_elem*)malloc(sizeof(struct fd_elem));
 		if (!fde){ //failed
