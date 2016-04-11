@@ -27,7 +27,7 @@ struct child{
   tid_t child_id;
   int waited; //0 if never, 1 if has waited before
   int memory;
-  struct lock *memory_lock;
+  struct lock memory_lock;
 };
 
 
@@ -209,16 +209,16 @@ process_exit (int status)
      {
       e = list_pop_front (&cur->child_list);
       c = list_entry(e, struct child, elem);
-      while (lock_try_acquire(c->memory_lock)!=true){
+      while (lock_try_acquire(&c->memory_lock)!=true){
       }
       c->memory = c->memory - 1;
-      lock_release(c->memory_lock);
+      lock_release(&c->memory_lock);
     if (c->memory == 0){
       list_remove(e);
       free(c);
     }
     else{
-      list_push_back(&templist,&e);
+      list_push_back(&templist, &e);
     }
   }
   while (!list_empty (&templist))
@@ -233,10 +233,10 @@ process_exit (int status)
       c = list_entry(e, struct child, elem);
       if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
         c->status = status;
-        while (lock_try_acquire(c->memory_lock)!=true){
+        while (lock_try_acquire(&c->memory_lock)!=true){
         }
         c->memory = c->memory - 1;
-        lock_release(c->memory_lock);
+        lock_release(&c->memory_lock);
 
         if (c->memory == 0){
           list_remove(e);
