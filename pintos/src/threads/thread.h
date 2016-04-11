@@ -92,6 +92,7 @@ struct thread
     /* Task3 */
     struct list fd_list;
     int fd;
+    struct file *cur_exec_file;
 
     //Task 2
     struct list child_list;

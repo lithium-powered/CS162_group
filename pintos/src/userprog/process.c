@@ -41,12 +41,6 @@ tid_t
 process_execute (const char *file_name) 
 {
 
-  struct file *f = filesys_open(file_name);
-  if (f!=NULL){
-    //prevent other threads from writing to the executable
-    file_deny_write(f);
-  }
-
   char *fn_copy;
   char thread[16];
   tid_t tid;
@@ -172,6 +166,11 @@ process_exit (int status)
 {
    struct thread *cur = thread_current ();
    uint32_t *pd;
+
+  //close current executing file
+  if(cur->cur_exec_file != NULL){
+    file_close (cur->cur_exec_file);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -357,8 +356,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file = filesys_open (arg);
   if (file == NULL) 
     {
+
       printf ("load: %s: open failed\n", file_name);
       goto done; 
+
+    }else{
+      t->cur_exec_file = file;
+
+      file_deny_write(file); 
     }
 
   /* Read and verify executable header. */
@@ -472,7 +477,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  //file_close (file);
   return success;
 }
 
