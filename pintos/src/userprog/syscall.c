@@ -308,7 +308,6 @@ unsigned tell (int fd) {
 
 void close (int fd) {
 
-	lock_acquire(&filesys_globlock);
 	struct thread *t = thread_current();
 
 	struct list_elem *i;
@@ -320,12 +319,10 @@ void close (int fd) {
 			list_remove(&fde->elem);
 			free(fde);
 			if (fd != -1){
-				lock_release(&filesys_globlock);
 				return;
 			}
 		}
 	}
-	lock_release(&filesys_globlock);
 	return;
 }
 

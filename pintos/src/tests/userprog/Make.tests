@@ -15,7 +15,7 @@ write-boundary write-zero write-stdin write-bad-fd exec-once exec-arg	\
 exec-multiple exec-missing exec-bad-ptr wait-simple wait-twice		\
 wait-killed wait-bad-pid multi-recurse multi-child-fd rox-simple	\
 rox-child rox-multichild bad-read bad-write bad-read2 bad-write2        \
-bad-jump bad-jump2 iloveos practice)
+bad-jump bad-jump2 iloveos practice close-all)
 
 tests/userprog_PROGS = $(tests/userprog_TESTS) $(addprefix \
 tests/userprog/,child-simple child-args child-bad child-close child-rox)
@@ -63,6 +63,7 @@ tests/userprog/close-twice_SRC = tests/userprog/close-twice.c tests/main.c
 tests/userprog/close-stdin_SRC = tests/userprog/close-stdin.c tests/main.c
 tests/userprog/close-stdout_SRC = tests/userprog/close-stdout.c tests/main.c
 tests/userprog/close-bad-fd_SRC = tests/userprog/close-bad-fd.c tests/main.c
+tests/userprog/close-all_SRC = tests/userprog/close-all.c tests/main.c
 tests/userprog/read-normal_SRC = tests/userprog/read-normal.c tests/main.c
 tests/userprog/read-bad-ptr_SRC = tests/userprog/read-bad-ptr.c tests/main.c
 tests/userprog/read-boundary_SRC = tests/userprog/read-boundary.c	\
@@ -113,6 +114,8 @@ tests/userprog/open-boundary_PUTFILES += tests/userprog/sample.txt
 tests/userprog/open-twice_PUTFILES += tests/userprog/sample.txt
 tests/userprog/close-normal_PUTFILES += tests/userprog/sample.txt
 tests/userprog/close-twice_PUTFILES += tests/userprog/sample.txt
+tests/userprog/close-all_PUTFILES += tests/userprog/sample.txt
+tests/userprog/close-all_PUTFILES += tests/userprog/sample2.txt
 tests/userprog/read-normal_PUTFILES += tests/userprog/sample.txt
 tests/userprog/read-bad-ptr_PUTFILES += tests/userprog/sample.txt
 tests/userprog/read-boundary_PUTFILES += tests/userprog/sample.txt
