@@ -47,21 +47,24 @@ process_execute (const char *file_name)
   char thread[16];
   tid_t tid;
 
-  sema_init (&temporary, 0);
+  //sema_init (&temporary, 0);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  if (fn_copy == NULL){
+
     return TID_ERROR;
+  }
   strlcpy (fn_copy, file_name, PGSIZE);
 
     /* Put in correct name for thread */
   char *fn_copy2;
   fn_copy2 = palloc_get_page (0);
 
-  if (fn_copy2 == NULL)
+  if (fn_copy2 == NULL){
     return TID_ERROR;
+  }
   strlcpy (fn_copy2, file_name, PGSIZE);
   char *saveptr;
   const char *arg = strtok_r(fn_copy2, " ", &saveptr);
@@ -70,16 +73,28 @@ process_execute (const char *file_name)
     palloc_free_page (fn_copy2);
     return TID_ERROR;
   }
-  struct semaphore *exec_sema = malloc(sizeof(struct semaphore));
-  sema_init(exec_sema, 0);
+
   struct child *c = (struct child*)malloc(sizeof(struct child));
+  if (c==NULL){
+    return TID_ERROR;
+  }
+
+  struct semaphore *exec_sema = malloc(sizeof(struct semaphore));
+  if (exec_sema==NULL){
+    free(c);
+    return TID_ERROR;
+  }
+  sema_init(exec_sema, 0);
+
   /* Create a new thread to execute FILE_NAME. */
   sema_init(&c->wait,0);
-  c->child_id = 0;
+
   c->status = -2;
   c->waited = 0;
-  c->memory = 2;
   lock_init(&c->memory_lock);
+  lock_acquire(&c->memory_lock);
+  c->memory = 2;
+  lock_release(&c->memory_lock);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy, c, exec_sema);
@@ -88,13 +103,14 @@ process_execute (const char *file_name)
   palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
-    c->status = -1;
+    return TID_ERROR;
   }
 
   c->child_id = tid;
 
   //printf("we are trying to push back on the list of %s\n", thread_current()->name);
   list_push_back(&thread_current()->child_list, &c->elem);
+
   //sema_down(exec_sema);
   return tid;
 }
@@ -157,15 +173,6 @@ process_wait (tid_t child_tid UNUSED)
       //printf("%d\n",child_tid);
       if (c->child_id == child_tid){
         struct semaphore *s = &c->wait;
-        //printf("%d\n",list_size(&(s->waiters)));
-        // if (c->waited == 1){
-        //  // printf("already waited on you");
-        //   return -1;
-        // }
-        //printf("sema down");
-        //printf("\nog status: %d\n",c->status);
-          //c->waited = 1;
-
           sema_down(&c->wait);
           list_remove(e);
           int status = c->status;
@@ -240,6 +247,7 @@ process_exit (int status)
   if (node->memory == 0){
     e = &node->elem;
     list_remove(e);
+    free(cur->exec_sema);
     free(c);
   } else {
     sema_up(&node->wait);
@@ -518,6 +526,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   success = true;
 
  done:
+ if (fn_copy!=NULL){
+  palloc_free_page(fn_copy);
+ }
   /* We arrive here whether the load is successful or not. */
   //file_close (file);
   return success;
