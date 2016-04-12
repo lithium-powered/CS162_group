@@ -315,14 +315,13 @@ void close (int fd) {
 
 	for (i = list_begin(&t->fd_list); i != list_end(&t->fd_list); i = list_next(i)){
 		struct fd_elem *fde = list_entry(i, struct fd_elem, elem);
-		if (fd == fde->fd || fd == -1){
-			file_close(fde->file);
+		if (fde && fd == fde->fd){
+			if (fde->file){
+				file_close(fde->file);
+			}
 			list_remove(&fde->elem);
 			free(fde);
-			if (fd != -1){
-				lock_release(&filesys_globlock);
-				return;
-			}
+			break;
 		}
 	}
 	lock_release(&filesys_globlock);
