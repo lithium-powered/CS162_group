@@ -118,7 +118,7 @@ thread_start (void)
   /* Create the idle thread. */
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
-  thread_create ("idle", PRI_MIN, idle, &idle_started);
+  thread_create ("idle", PRI_MIN, idle, &idle_started, NULL, NULL);
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -172,7 +172,7 @@ thread_print_stats (void)
    Priority scheduling is the goal of Problem 1-3. */
 tid_t
 thread_create (const char *name, int priority,
-               thread_func *function, void *aux) 
+               thread_func *function, void *aux, struct child *c, struct semaphore *s) 
 {
   //printf("we are creating the thread %s\n", name);
   struct thread *t;
@@ -195,8 +195,12 @@ thread_create (const char *name, int priority,
   //Task 2
   list_init(&t->child_list); //initialize child list
   //printf("We created the childlist for %s\n", name);
-  t->parent = thread_current(); //set child's parent to current thread's tid
 
+  t->parent = thread_current(); //set child's parent to current thread's tid
+  t->node = c;
+  // printf("threadcreate");
+  // printf("\n%p\n",t->node);
+  t->exec_sema = s;
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -476,10 +480,15 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
 
-  list_init(&t->fd_list); //For Task 3.
-  t->fd = 2; /* Initialize as 2 for minimum. File descriptors numbered 0 and 1 are reserved for the console: 
-  fd 0 (STDIN_FILENO) is standard input, fd 1 (STDOUT_FILENO) is standard output. 
-  The open system call will never return either of these file descriptors */
+  //Task 3
+  list_init(&t->fd_list);
+  /* Initialize as 2 for minimum. 
+  fd 0 (STDIN_FILENO)
+  fd 1 (STDOUT_FILENO)*/
+  t->fd = 2;
+  /* Initialize current executing file */
+  t->cur_exec_file = NULL; 
+  
   intr_set_level (old_level);
 }
 

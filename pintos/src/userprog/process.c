@@ -26,6 +26,8 @@ struct child{
   int status;
   tid_t child_id;
   int waited; //0 if never, 1 if has waited before
+  int memory;
+  struct lock memory_lock;
 };
 
 
@@ -41,16 +43,11 @@ tid_t
 process_execute (const char *file_name) 
 {
 
-  struct file *f = filesys_open(file_name);
-  if (f!=NULL){
-    //prevent other threads from writing to the executable
-    file_deny_write(f);
-  }
-
   char *fn_copy;
+  char thread[16];
   tid_t tid;
 
-  sema_init (&temporary, 0);
+  //sema_init (&temporary, 0);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -59,28 +56,58 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  char *saveptr;
-  char fileNameRep[64];
-  memcpy(fileNameRep, file_name, strlen(file_name)+1);
-  const char *arg = strtok_r(fileNameRep, " ", &saveptr);
-  if (filesys_open(arg)==NULL){
+    /* Put in correct name for thread */
+  char *fn_copy2;
+  fn_copy2 = palloc_get_page (0);
+  if (fn_copy2 == NULL){
+    palloc_free_page(fn_copy);
     return TID_ERROR;
   }
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy);
-  if (tid == TID_ERROR){
-    palloc_free_page (fn_copy); 
+  strlcpy (fn_copy2, file_name, PGSIZE);
+  char *saveptr;
+  const char *arg = strtok_r(fn_copy2, " ", &saveptr);
+  if (filesys_open(arg)==NULL){
+    palloc_free_page(fn_copy);
+    palloc_free_page (fn_copy2);
+    return TID_ERROR;
   }
 
-  //Task 2 add this new thread onto current thread's child list
   struct child *c = (struct child*)malloc(sizeof(struct child));
+  //handle malloc here
+  if (c==NULL){
+    palloc_free_page(fn_copy);
+    palloc_free_page (fn_copy2);
+    return TID_ERROR;
+  }
+  struct semaphore *exec_sema = malloc(sizeof(struct semaphore));
+  //handle malloc here
+  if (exec_sema == NULL){
+    palloc_free_page(fn_copy);
+    palloc_free_page (fn_copy2);
+    free(c);
+    return TID_ERROR;
+  }
+  sema_init(exec_sema, 0);
+
   sema_init(&c->wait,0);
-  c->child_id = tid;
+
   c->status = -2;
   c->waited = 0;
+  c->memory = 2;
+  lock_init(&c->memory_lock);
+
+  /* Create a new thread to execute FILE_NAME. */
+  tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy, c, exec_sema);
+  sema_down(exec_sema);
+  palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
-    c->status = -1;
+    palloc_free_page (fn_copy); 
+    return TID_ERROR;
   }
+  c->child_id = tid;
+  // printf("\n%d\n",tid);
+  // printf("\n%p\n",c);
+  //Task 2 add this new thread onto current thread's child list
   //printf("we are trying to push back on the list of %s\n", thread_current()->name);
   list_push_back(&thread_current()->child_list, &c->elem);
   return tid;
@@ -104,8 +131,13 @@ start_process (void *file_name_)
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
-  if (!success) 
+  if (!success){
+    //free stuff??
+
+    sema_up(thread_current()->exec_sema);
     thread_exit (-1);
+  }
+  sema_up(thread_current()->exec_sema);
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -140,23 +172,24 @@ process_wait (tid_t child_tid UNUSED)
       if (c->child_id == child_tid){
         struct semaphore *s = &c->wait;
         //printf("%d\n",list_size(&(s->waiters)));
-        if (c->waited == 1){
-          return -1;
-        }
+        //if (c->waited == 1){
+         // printf("already waited on you");
+          //return -1;
+        //}
         //printf("sema down");
-        if (c->status==-2){
-          c->waited = 1;
+        //printf("\nog status: %d\n",c->status);
+          //c->waited = 1;
+
           sema_down(&c->wait);
-          return c->status;
-        }
-        else{
-          return c->status;
-        }
+          list_remove(e);
+          int status = c->status;
+          free(c);
+          //printf("\nnew status: %d\n",c->status);
+          return status;
       }
     }
+  //printf("couldn't find you");
   return -1;
-  sema_down (&temporary);
-  return 0;
 }
 
 /* Free the current process's resources. */
@@ -165,6 +198,13 @@ process_exit (int status)
 {
    struct thread *cur = thread_current ();
    uint32_t *pd;
+
+  //close current executing file
+  if(cur->cur_exec_file != NULL){
+    file_allow_write(cur->cur_exec_file);
+    //printf("\nclose: %p\n",cur->cur_exec_file);
+    file_close (cur->cur_exec_file);
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -182,24 +222,102 @@ process_exit (int status)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  sema_up (&temporary);
+  //sema_up (&temporary);
   //***************************
   //struct thread *cur = thread_current();
   struct thread *parent = cur->parent;
 
   struct list_elem *e;
+  struct child *c;
 
-  for (e = list_begin (&parent->child_list); e != list_end (&parent->child_list);
-     e = list_next (e))
-  {
-    struct child *c = list_entry (e, struct child, elem);
-    if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
-      c->status = status;
-      sema_up(&c->wait);
+for (e = list_begin (&cur->child_list); e != list_end (&cur->child_list);)
+   {
+       c = list_entry(e, struct child, elem);
+      lock_acquire(&c->memory_lock);
+      c->memory = c->memory - 1;
+      if (c->memory == 0){
+        lock_release(&c->memory_lock);
+        e = list_remove(e);
+        free(cur->exec_sema);
+        free(c);
+      }
+      else{
+        e = list_next(e);
+        lock_release(&c->memory_lock);
+      }
+      //printf("Released a lock\n");
+
     }
-  }
 
-     
+  // while (!list_empty (&cur->child_list))
+  //    {
+  //     e = list_pop_front (&cur->child_list);
+  //     c = list_entry(e, struct child, elem);
+      
+    
+  // }
+  // while (!list_empty (&templist))
+  //    {
+  //     e = list_pop_front (&templist);
+  //     list_push_back(&cur->child_list, &e);
+  //   }
+
+
+    struct child *node = cur->node;
+    //printf("Node Retrieved\n");
+    node->status = status;
+    lock_acquire(&node->memory_lock);
+      node->memory = node->memory - 1;
+      //printf("updated memory\n");
+
+      if (node->memory == 0){
+          e = &node->elem;
+      //    printf("removing node\n");
+          list_remove(e);
+          free(c);
+         }
+         else{
+      //    printf("sema up\n");
+           sema_up(&node->wait);
+         }
+
+      lock_release(&node->memory_lock);
+      //printf("Released a lock\n");
+      
+         //no tmep list
+         
+    //printf("this is child pointer to node: %p\n",node);
+      //lock_acquire
+
+
+  //  for (e = list_begin (&parent->child_list); e != list_end (&parent->child_list);
+  //    e = list_next (e))
+  // {
+  //     c = list_entry(e, struct child, elem);
+  //     if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
+  // //       c->status = status;
+  // //       while (lock_try_acquire(&c->memory_lock)!=true){
+  // //       }
+  // //       c->memory = c->memory - 1;
+  // //       lock_release(&c->memory_lock);
+
+  // //       if (c->memory == 0){
+  // //         list_remove(e);
+  // //         free(c);
+  // //         break;
+  // //       }
+  // //       else{
+  // //         sema_up(&c->wait);
+  // //         break;
+  // //       }
+  //       printf("this is found pointer to node: %p\n",c);
+  //     }
+
+  //}
+    
+
+
+   
 }
 
 /* Sets up the CPU for running user code in the current
@@ -301,6 +419,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+  /* Added Declarations */
+  char *fn_copy = NULL;
+  char *saveptr;
+  char *arg;
+  size_t argc;
+  size_t argSize;
+  /* Max of 32 arguments are allowed. */
+  char *argv[33];
+  
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
@@ -308,18 +435,49 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Added */
+  /* Check assertions about the arguments */
+  argc = 0;
+  argSize = 0;
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    goto done;
+  strlcpy (fn_copy, file_name, PGSIZE);
+  arg = strtok_r(fn_copy, " ", &saveptr);
+  argSize += strlen(arg) + 1;
+  argc++;
+  while((arg=strtok_r(NULL, " ", &saveptr)) != NULL){
+    argSize += strlen(arg) + 1;
+    argc++;
+  }
+  palloc_free_page(fn_copy);
+  fn_copy = NULL;
+  /* if more than 32 arguments or will pass stack limit, fail */
+  if ((argc > 32) || 
+    ((argSize+(4-(argSize)%4)%4+(argc+4)*4) > 256)){
+    goto done;
+  }
+
   /* Get argv[0] from file to get argument to pass into filesys_open */
-  char *saveptr;
-  char fileNameRep[64];
-  memcpy(fileNameRep, file_name, strlen(file_name)+1);
-  char *arg = strtok_r(fileNameRep, " ", &saveptr);
+  fn_copy = palloc_get_page (0);
+  if (fn_copy == NULL)
+    goto done;
+  strlcpy (fn_copy, file_name, PGSIZE);
+  arg = strtok_r(fn_copy, " ", &saveptr);
 
   /* Open executable file. */
+  /* If we successfully open then we deny writes to that file*/
   file = filesys_open (arg);
   if (file == NULL) 
     {
+
       printf ("load: %s: open failed\n", file_name);
       goto done; 
+
+    }else{
+      //printf("open: \n%p\n",file);
+      t->cur_exec_file = file;
+
+      file_deny_write(file); 
     }
 
   /* Read and verify executable header. */
@@ -399,12 +557,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     goto done;
 
   /* Push arguments onto stack. */
-  int argc = 0;
-  //Max of 32 arguments are allowed.
-  //Do we need to add checks for stack limit?
-  char *argv[33];
-  
-  int argSize = strlen(arg) + 1;
+  argc = 0;
+  argSize = strlen(arg) + 1;
   *esp = (char *) *esp - argSize;
   memcpy(*esp, arg, argSize);
   argv[argc] = (char *) *esp;
@@ -437,7 +591,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  //file_close (file);
   return success;
 }
 

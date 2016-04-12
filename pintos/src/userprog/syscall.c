@@ -24,7 +24,7 @@ static void syscall_handler (struct intr_frame *);
 
 //Task3
 struct lock filesys_globlock;
-//void check_args(struct intr_frame *f, int n);
+void check_args(struct intr_frame *f, int n);
 int ptr_check(const void *vaddr);
 struct file* get_file_from_fd(int fd);
 void exit(int status);
@@ -64,7 +64,13 @@ static void syscall_handler (struct intr_frame *f UNUSED)
     f->eax = args[1];
     check_args(f,1);
     printf("%s: exit(%d)\n", &thread_current ()->name, args[1]);
+    struct thread *t = thread_current();
+	while (!list_empty (&t->fd_list)){
+		struct list_elem *i = list_begin(&t->fd_list);
+		close(list_entry(i, struct fd_elem, elem)->fd);
+	}
 
+    //printf("args1: %d",args[1]);
     thread_exit(args[1]);
   }
 
@@ -203,7 +209,6 @@ int open (const char *file) {
 	lock_acquire(&filesys_globlock);
 	struct file *f = filesys_open(file);
 	if (f){
-
 		struct thread *t = thread_current();
 		struct fd_elem *fde = (struct fd_elem*)malloc(sizeof(struct fd_elem));
 		if (!fde){ //failed
