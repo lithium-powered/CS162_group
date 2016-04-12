@@ -47,7 +47,7 @@ process_execute (const char *file_name)
   char thread[16];
   tid_t tid;
 
-  //sema_init (&temporary, 0);
+  sema_init (&temporary, 0);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
@@ -59,38 +59,23 @@ process_execute (const char *file_name)
     /* Put in correct name for thread */
   char *fn_copy2;
   fn_copy2 = palloc_get_page (0);
-  if (fn_copy2 == NULL){
-    palloc_free_page(fn_copy);
+
+  if (fn_copy2 == NULL)
     return TID_ERROR;
-  }
   strlcpy (fn_copy2, file_name, PGSIZE);
   char *saveptr;
   const char *arg = strtok_r(fn_copy2, " ", &saveptr);
   if (filesys_open(arg)==NULL){
-    palloc_free_page(fn_copy);
-    palloc_free_page (fn_copy2);
-    return TID_ERROR;
-  }
 
-  struct child *c = (struct child*)malloc(sizeof(struct child));
-  //handle malloc here
-  if (c==NULL){
-    palloc_free_page(fn_copy);
     palloc_free_page (fn_copy2);
     return TID_ERROR;
   }
   struct semaphore *exec_sema = malloc(sizeof(struct semaphore));
-  //handle malloc here
-  if (exec_sema == NULL){
-    palloc_free_page(fn_copy);
-    palloc_free_page (fn_copy2);
-    free(c);
-    return TID_ERROR;
-  }
   sema_init(exec_sema, 0);
-
+  struct child *c = (struct child*)malloc(sizeof(struct child));
+  /* Create a new thread to execute FILE_NAME. */
   sema_init(&c->wait,0);
-
+  c->child_id = 0;
   c->status = -2;
   c->waited = 0;
   c->memory = 2;
@@ -99,17 +84,18 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy, c, exec_sema);
   sema_down(exec_sema);
+
   palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
-    return TID_ERROR;
+    c->status = -1;
   }
+
   c->child_id = tid;
-  // printf("\n%d\n",tid);
-  // printf("\n%p\n",c);
-  //Task 2 add this new thread onto current thread's child list
+
   //printf("we are trying to push back on the list of %s\n", thread_current()->name);
   list_push_back(&thread_current()->child_list, &c->elem);
+  //sema_down(exec_sema);
   return tid;
 }
 
@@ -172,10 +158,10 @@ process_wait (tid_t child_tid UNUSED)
       if (c->child_id == child_tid){
         struct semaphore *s = &c->wait;
         //printf("%d\n",list_size(&(s->waiters)));
-        //if (c->waited == 1){
-         // printf("already waited on you");
-          //return -1;
-        //}
+        // if (c->waited == 1){
+        //  // printf("already waited on you");
+        //   return -1;
+        // }
         //printf("sema down");
         //printf("\nog status: %d\n",c->status);
           //c->waited = 1;
@@ -201,8 +187,8 @@ process_exit (int status)
 
   //close current executing file
   if(cur->cur_exec_file != NULL){
+
     file_allow_write(cur->cur_exec_file);
-    //printf("\nclose: %p\n",cur->cur_exec_file);
     file_close (cur->cur_exec_file);
   }
 
@@ -230,94 +216,36 @@ process_exit (int status)
   struct list_elem *e;
   struct child *c;
 
-for (e = list_begin (&cur->child_list); e != list_end (&cur->child_list);)
-   {
-       c = list_entry(e, struct child, elem);
-      lock_acquire(&c->memory_lock);
-      c->memory = c->memory - 1;
-      if (c->memory == 0){
-        lock_release(&c->memory_lock);
-        e = list_remove(e);
-        free(cur->exec_sema);
-        free(c);
-      }
-      else{
-        e = list_next(e);
-        lock_release(&c->memory_lock);
-      }
-      //printf("Released a lock\n");
-
+  for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);)
+  {
+    c = list_entry(e, struct child, elem);
+    lock_acquire(&c->memory_lock);
+    c->memory = c->memory -1;
+    if (c->memory == 0){
+      lock_release(&c->memory_lock);
+      e = list_remove(e);
+      free(cur->exec_sema);
+      free(c);
+    } else {
+      e = list_next(e);
+      lock_release(&c->memory_lock);
     }
 
-  // while (!list_empty (&cur->child_list))
-  //    {
-  //     e = list_pop_front (&cur->child_list);
-  //     c = list_entry(e, struct child, elem);
-      
-    
-  // }
-  // while (!list_empty (&templist))
-  //    {
-  //     e = list_pop_front (&templist);
-  //     list_push_back(&cur->child_list, &e);
-  //   }
+  }
 
+  struct child *node = cur->node;
+  node->status = status;
+  lock_acquire(&node->memory_lock);
+  node->memory = node->memory - 1;
+  if (node->memory == 0){
+    e = &node->elem;
+    list_remove(e);
+    free(c);
+  } else {
+    sema_up(&node->wait);
+  }
 
-    struct child *node = cur->node;
-    //printf("Node Retrieved\n");
-    node->status = status;
-    lock_acquire(&node->memory_lock);
-      node->memory = node->memory - 1;
-      //printf("updated memory\n");
-
-      if (node->memory == 0){
-          e = &node->elem;
-      //    printf("removing node\n");
-          list_remove(e);
-          free(c);
-         }
-         else{
-      //    printf("sema up\n");
-           sema_up(&node->wait);
-         }
-
-      lock_release(&node->memory_lock);
-      //printf("Released a lock\n");
-      
-         //no tmep list
-         
-    //printf("this is child pointer to node: %p\n",node);
-      //lock_acquire
-
-
-  //  for (e = list_begin (&parent->child_list); e != list_end (&parent->child_list);
-  //    e = list_next (e))
-  // {
-  //     c = list_entry(e, struct child, elem);
-  //     if ((tid_t)(c->child_id) == (tid_t)(cur->tid)){
-  // //       c->status = status;
-  // //       while (lock_try_acquire(&c->memory_lock)!=true){
-  // //       }
-  // //       c->memory = c->memory - 1;
-  // //       lock_release(&c->memory_lock);
-
-  // //       if (c->memory == 0){
-  // //         list_remove(e);
-  // //         free(c);
-  // //         break;
-  // //       }
-  // //       else{
-  // //         sema_up(&c->wait);
-  // //         break;
-  // //       }
-  //       printf("this is found pointer to node: %p\n",c);
-  //     }
-
-  //}
-    
-
-
-   
+  lock_release(&node->memory_lock);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -474,7 +402,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
 
     }else{
-      //printf("open: \n%p\n",file);
+
       t->cur_exec_file = file;
 
       file_deny_write(file); 

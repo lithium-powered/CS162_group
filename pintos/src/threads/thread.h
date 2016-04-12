@@ -92,10 +92,13 @@ struct thread
     /* Task3 */
     struct list fd_list;
     int fd;
+    struct file *cur_exec_file;
 
     //Task 2
     struct list child_list;
     struct thread *parent;
+    struct child *node;
+    struct semaphore* exec_sema;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -118,7 +121,7 @@ void thread_tick (void);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
-tid_t thread_create (const char *name, int priority, thread_func *, void *);
+tid_t thread_create (const char *name, int priority, thread_func *, void *, struct child *, struct semaphore *);
 
 void thread_block (void);
 void thread_unblock (struct thread *);
