@@ -299,7 +299,9 @@ thread_exit (int status)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
+  sema_up(thread_current()->exec_sema);
   process_exit (status);
+
 #endif
 
   /* Remove thread from all threads list, set our status to dying,

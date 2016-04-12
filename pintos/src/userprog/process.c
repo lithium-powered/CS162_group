@@ -44,7 +44,7 @@ process_execute (const char *file_name)
 {
 
   char *fn_copy;
-  char thread[16];
+  //            char thread[16];
   tid_t tid;
 
   //sema_init (&temporary, 0);
@@ -59,18 +59,20 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
     /* Put in correct name for thread */
-  char *fn_copy2;
-  fn_copy2 = palloc_get_page (0);
+  //        char *fn_copy2;
+  //        fn_copy2 = palloc_get_page (0);
+  char fn_copy2[128];
 
-  if (fn_copy2 == NULL){
-    return TID_ERROR;
-  }
-  strlcpy (fn_copy2, file_name, PGSIZE);
+  //      if (fn_copy2 == NULL){
+  //        return TID_ERROR;
+  //        }
+  //        strlcpy (fn_copy2, file_name, PGSIZE);
+  strlcpy (fn_copy2, file_name, strlen(file_name)+1);
   char *saveptr;
   const char *arg = strtok_r(fn_copy2, " ", &saveptr);
   if (filesys_open(arg)==NULL){
 
-    palloc_free_page (fn_copy2);
+    //        palloc_free_page (fn_copy2);
     return TID_ERROR;
   }
 
@@ -99,8 +101,11 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy, c, exec_sema);
   sema_down(exec_sema);
+  if (c->status==-1){
+    return TID_ERROR;
+  }
 
-  palloc_free_page (fn_copy2);
+  //        palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
     return TID_ERROR;
@@ -135,8 +140,10 @@ start_process (void *file_name_)
   palloc_free_page (file_name);
   if (!success){
     //free stuff??
+    //thread_current()->node->status=-1;
+    //sema_up(thread_current()->exec_sema);
+    //printf("load failed");
 
-    sema_up(thread_current()->exec_sema);
     thread_exit (-1);
   }
   sema_up(thread_current()->exec_sema);
@@ -177,7 +184,7 @@ process_wait (tid_t child_tid UNUSED)
           list_remove(e);
           int status = c->status;
           free(c);
-          //printf("\nnew status: %d\n",c->status);
+          //printf("\nnew status: %d\n",status);
           return status;
       }
     }
@@ -189,7 +196,9 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (int status)
 {
+
    struct thread *cur = thread_current ();
+     //printf("\nexiting pid: %d and status: %d\n",cur->tid, status);
    uint32_t *pd;
 
   //close current executing file
@@ -366,8 +375,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL) 
+  if (t->pagedir == NULL){
+    //printf("pagedir failed");
     goto done;
+  }
   process_activate ();
 
   /* Added */
@@ -375,8 +386,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
   argc = 0;
   argSize = 0;
   fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  if (fn_copy == NULL){
+    //printf("palloc failed");
     goto done;
+  }
   strlcpy (fn_copy, file_name, PGSIZE);
   arg = strtok_r(fn_copy, " ", &saveptr);
   argSize += strlen(arg) + 1;
@@ -390,13 +403,16 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* if more than 32 arguments or will pass stack limit, fail */
   if ((argc > 32) || 
     ((argSize+(4-(argSize)%4)%4+(argc+4)*4) > 256)){
+    //printf("stack limit");
     goto done;
   }
 
   /* Get argv[0] from file to get argument to pass into filesys_open */
   fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
+  if (fn_copy == NULL){
+    //printf("second palloc failed");
     goto done;
+  }
   strlcpy (fn_copy, file_name, PGSIZE);
   arg = strtok_r(fn_copy, " ", &saveptr);
 
@@ -407,6 +423,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     {
 
       printf ("load: %s: open failed\n", file_name);
+      //printf("file null");
       goto done; 
 
     }else{
@@ -426,6 +443,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phnum > 1024) 
     {
       printf ("load: %s: error loading executable\n", file_name);
+      //printf("loading exec error");
       goto done; 
     }
 
@@ -436,11 +454,16 @@ load (const char *file_name, void (**eip) (void), void **esp)
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
+      {
+        //printf("file length");
         goto done;
+      }
       file_seek (file, file_ofs);
 
-      if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
+      if (file_read (file, &phdr, sizeof phdr) != sizeof phdr){
+        //printf("filed read");
         goto done;
+      }
       file_ofs += sizeof phdr;
       switch (phdr.p_type) 
         {
@@ -479,8 +502,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
                   zero_bytes = ROUND_UP (page_offset + phdr.p_memsz, PGSIZE);
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
-                                 read_bytes, zero_bytes, writable))
+                                 read_bytes, zero_bytes, writable)){
+                //printf("load seg");
                 goto done;
+            }
             }
           else
             goto done;
@@ -489,8 +514,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp)){
+    //printf("couldn't set up stack");
     goto done;
+  }
 
   /* Push arguments onto stack. */
   argc = 0;
@@ -522,7 +549,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-
+  //printf("set success to true");
   success = true;
 
  done:
@@ -616,12 +643,16 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 
       /* Get a page of memory. */
       uint8_t *kpage = palloc_get_page (PAL_USER);
-      if (kpage == NULL)
+      if (kpage == NULL){
+        //printf("load seg palloc fail");
         return false;
+      
+      }
 
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
+          //printf("reading error");
           palloc_free_page (kpage);
           return false; 
         }
@@ -630,6 +661,7 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
+          //printf("couldn't install page");
           palloc_free_page (kpage);
           return false; 
         }

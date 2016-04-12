@@ -74,8 +74,10 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
   void *pages;
   size_t page_idx;
 
-  if (page_cnt == 0)
+  if (page_cnt == 0){
+    //printf("0 page count");
     return NULL;
+  }
 
   lock_acquire (&pool->lock);
   page_idx = bitmap_scan_and_flip (pool->used_map, 0, page_cnt, false);
@@ -83,8 +85,10 @@ palloc_get_multiple (enum palloc_flags flags, size_t page_cnt)
 
   if (page_idx != BITMAP_ERROR)
     pages = pool->base + PGSIZE * page_idx;
-  else
+  else{
+    //printf("bitmap error");
     pages = NULL;
+  }
 
   if (pages != NULL) 
     {
