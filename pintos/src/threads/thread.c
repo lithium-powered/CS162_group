@@ -72,12 +72,17 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
 
+//This is the node for the children linked list that each parent thread stores
+
 struct child{
   struct list_elem elem;
   struct semaphore wait;
   int status;
   tid_t child_id;
+  int memory;
+  struct lock memory_lock;
 };
+
 
 
 /* Initializes the threading system by transforming the code
@@ -174,7 +179,6 @@ tid_t
 thread_create (const char *name, int priority,
                thread_func *function, void *aux, struct child *c, struct semaphore *s) 
 {
-  //printf("we are creating the thread %s\n", name);
   struct thread *t;
   struct kernel_thread_frame *kf;
   struct switch_entry_frame *ef;
@@ -194,13 +198,12 @@ thread_create (const char *name, int priority,
 
   //Task 2
   list_init(&t->child_list); //initialize child list
-  //printf("We created the childlist for %s\n", name);
 
   t->parent = thread_current(); //set child's parent to current thread's tid
-  t->node = c;
-  // printf("threadcreate");
-  // printf("\n%p\n",t->node);
-  t->exec_sema = s;
+  t->node = c; //set child's node pointer to node in parent's linked list of children
+  t->exec_sema = s; //set child's semaphore pointer to the loading semaphore it shares with its parent
+
+  
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
@@ -299,7 +302,7 @@ thread_exit (int status)
   ASSERT (!intr_context ());
 
 #ifdef USERPROG
-  sema_up(thread_current()->exec_sema);
+  sema_up(thread_current()->exec_sema); //Alert parent that the child is dying
   process_exit (status);
 
 #endif

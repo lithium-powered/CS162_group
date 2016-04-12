@@ -20,18 +20,19 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 
+
+//This is the node for the children linked list that each parent thread stores
+
 struct child{
   struct list_elem elem;
   struct semaphore wait;
   int status;
   tid_t child_id;
-  int waited; //0 if never, 1 if has waited before
   int memory;
   struct lock memory_lock;
 };
 
 
-static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -44,55 +45,43 @@ process_execute (const char *file_name)
 {
 
   char *fn_copy;
-  //            char thread[16];
   tid_t tid;
-
-  //sema_init (&temporary, 0);
 
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL){
-
     return TID_ERROR;
   }
   strlcpy (fn_copy, file_name, PGSIZE);
 
-    /* Put in correct name for thread */
-  //        char *fn_copy2;
-  //        fn_copy2 = palloc_get_page (0);
+  /* Put in correct name for thread */
+  //One thread uses fn_copy of name and other thread uses fn_copy2 of name
   char fn_copy2[128];
-
-  //      if (fn_copy2 == NULL){
-  //        return TID_ERROR;
-  //        }
-  //        strlcpy (fn_copy2, file_name, PGSIZE);
   strlcpy (fn_copy2, file_name, strlen(file_name)+1);
   char *saveptr;
   const char *arg = strtok_r(fn_copy2, " ", &saveptr);
   if (filesys_open(arg)==NULL){
-
-    //        palloc_free_page (fn_copy2);
     return TID_ERROR;
   }
-
+  //Malloc a node for the parent's children linked list
   struct child *c = (struct child*)malloc(sizeof(struct child));
   if (c==NULL){
     return TID_ERROR;
   }
 
+  //Malloc a semaphore for the parent to ensure the child loads
   struct semaphore *exec_sema = malloc(sizeof(struct semaphore));
   if (exec_sema==NULL){
     free(c);
     return TID_ERROR;
   }
+  //Initialize semaphores
   sema_init(exec_sema, 0);
-
-  /* Create a new thread to execute FILE_NAME. */
   sema_init(&c->wait,0);
-
   c->status = -2;
-  c->waited = 0;
+
+  //Set the node's number of alive members
   lock_init(&c->memory_lock);
   lock_acquire(&c->memory_lock);
   c->memory = 2;
@@ -100,23 +89,23 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (arg, PRI_DEFAULT, start_process, fn_copy, c, exec_sema);
+
+  //Wait for child thread to finish loading
   sema_down(exec_sema);
+
+  //Handle errors by returning TID_ERROR
   if (c->status==-1){
     return TID_ERROR;
   }
 
-  //        palloc_free_page (fn_copy2);
   if (tid == TID_ERROR){
     palloc_free_page (fn_copy); 
     return TID_ERROR;
   }
 
+  //Add new child to the parent's linked list
   c->child_id = tid;
-
-  //printf("we are trying to push back on the list of %s\n", thread_current()->name);
   list_push_back(&thread_current()->child_list, &c->elem);
-
-  //sema_down(exec_sema);
   return tid;
 }
 
@@ -139,11 +128,6 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success){
-    //free stuff??
-    //thread_current()->node->status=-1;
-    //sema_up(thread_current()->exec_sema);
-    //printf("load failed");
-
     thread_exit (-1);
   }
   sema_up(thread_current()->exec_sema);
@@ -173,22 +157,23 @@ process_wait (tid_t child_tid UNUSED)
   struct thread *cur = thread_current();
   struct list_elem *e;
 
+  //Search through parent's linked list of children for the child whose tid matches child_tid
   for (e = list_begin (&cur->child_list); e != list_end (&cur->child_list);
        e = list_next (e))
     {
       struct child *c = list_entry (e, struct child, elem);
-      //printf("%d\n",child_tid);
       if (c->child_id == child_tid){
-        struct semaphore *s = &c->wait;
+        //Once the child is found, wait for the child to die
           sema_down(&c->wait);
+
+          //When the child dies, remove it from all lists and free memory
           list_remove(e);
           int status = c->status;
           free(c);
-          //printf("\nnew status: %d\n",status);
           return status;
       }
     }
-  //printf("couldn't find you");
+    //Return -1 if invalid child ID
   return -1;
 }
 
@@ -198,7 +183,6 @@ process_exit (int status)
 {
 
    struct thread *cur = thread_current ();
-     //printf("\nexiting pid: %d and status: %d\n",cur->tid, status);
    uint32_t *pd;
 
   //close current executing file
@@ -224,14 +208,12 @@ process_exit (int status)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  //sema_up (&temporary);
-  //***************************
-  //struct thread *cur = thread_current();
-  struct thread *parent = cur->parent;
 
   struct list_elem *e;
   struct child *c;
 
+//Search through this thread's list of children and decrement the memory variable (living members left). If no living members, remove from list
+//Use memory lock to protect the shared memory variable
   for (e = list_begin(&cur->child_list); e != list_end(&cur->child_list);)
   {
     c = list_entry(e, struct child, elem);
@@ -249,6 +231,8 @@ process_exit (int status)
 
   }
 
+//Decrement number of living members in the thread's parent's children list
+//Use memory lock to protect the shared memory variable
   struct child *node = cur->node;
   node->status = status;
   lock_acquire(&node->memory_lock);
@@ -410,7 +394,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Get argv[0] from file to get argument to pass into filesys_open */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL){
-    //printf("second palloc failed");
     goto done;
   }
   strlcpy (fn_copy, file_name, PGSIZE);
@@ -421,15 +404,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
   file = filesys_open (arg);
   if (file == NULL) 
     {
-
       printf ("load: %s: open failed\n", file_name);
-      //printf("file null");
       goto done; 
-
-    }else{
-
+    }
+    else{
       t->cur_exec_file = file;
-
       file_deny_write(file); 
     }
 
@@ -443,7 +422,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phnum > 1024) 
     {
       printf ("load: %s: error loading executable\n", file_name);
-      //printf("loading exec error");
       goto done; 
     }
 
@@ -455,13 +433,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
       if (file_ofs < 0 || file_ofs > file_length (file))
       {
-        //printf("file length");
         goto done;
       }
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr){
-        //printf("filed read");
         goto done;
       }
       file_ofs += sizeof phdr;
@@ -503,7 +479,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable)){
-                //printf("load seg");
                 goto done;
             }
             }
@@ -515,7 +490,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Set up stack. */
   if (!setup_stack (esp)){
-    //printf("couldn't set up stack");
     goto done;
   }
 
@@ -549,7 +523,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-  //printf("set success to true");
   success = true;
 
  done:
@@ -557,7 +530,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   palloc_free_page(fn_copy);
  }
   /* We arrive here whether the load is successful or not. */
-  //file_close (file);
   return success;
 }
 
@@ -644,7 +616,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Get a page of memory. */
       uint8_t *kpage = palloc_get_page (PAL_USER);
       if (kpage == NULL){
-        //printf("load seg palloc fail");
         return false;
       
       }
@@ -652,7 +623,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Load this page. */
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
-          //printf("reading error");
           palloc_free_page (kpage);
           return false; 
         }
@@ -661,7 +631,6 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       /* Add the page to the process's address space. */
       if (!install_page (upage, kpage, writable)) 
         {
-          //printf("couldn't install page");
           palloc_free_page (kpage);
           return false; 
         }
