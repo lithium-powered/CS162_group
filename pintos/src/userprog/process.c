@@ -384,10 +384,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   }
   palloc_free_page(fn_copy);
   fn_copy = NULL;
-  /* if more than 32 arguments or will pass stack limit, fail */
-  if ((argc > 32) || 
-    ((argSize+(4-(argSize)%4)%4+(argc+4)*4) > 256)){
-    //printf("stack limit");
+  /* if more than 32 arguments, fail */
+  if (argc > 32){
+    printf ("load failed, too many arguments\n");
     goto done;
   }
 
