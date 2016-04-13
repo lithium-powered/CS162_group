@@ -41,9 +41,9 @@ As a group we need to more thoroughly discuss the project when we are designing 
 The really good part was our initiative in completing the project, we worked extremely early on to get the basic parts out of the way and left enough time to work together on the tough parts that required a lot of discussing and talking through. Since we could review each other?s segments thoroughly we were also able to ensure that our misunderstood segments were cleared up either using each other?s understanding or by going to Office Hours
 We need to be careful about functions added and how we path these functions - sometimes adding certain code can bypass previous code that served a similar purpose. This is especially dangerous if either segment is modified to do more. This also applies to locks, if anyone adds a seemingly harmless but wrong sema_up or sema_down call it could unsynchronise the whole system and these changes are critical and must be communicated
 
-###Student Testing Report						
+###Your Student Testing Report (see the previous section for more details)						
 ? For each of the 2 test cases you write:			
-											
+				 							
 ?  Provide a description of the feature your test case is supposed to test.
 Filesize:
 Checks to make sure the filesize syscall is giving the correct values.
@@ -59,9 +59,9 @@ Used exec-arg as a template to create a child process with more than 32 argument
 This causes load to fail and print a message that there were too many arguments.
 The child process then returns exit(-1) and the parent exits with exit(0).
 
-?  Provide the output of your own Pintos kernel when you run the test case. Please copy the full raw output file from userprog/build/tests/userprog/your-test-1.output as well as the raw results from userprog/build/tests/userprog/your-test-1.result.
-
-```Filesize:
+?  Provide the output of your own Pintos kernel when you run the test case. Please copy the full raw output file from userprog/build/tests/userprog/your-test-1.output as well as the raw results from userprog/build/tests/userprog/your-test-1.result.					 
+	Filesize:
+Output:
 Copying tests/userprog/filesize to scratch partition...
 Copying ../../tests/userprog/sample.txt to scratch partition...
 qemu -hda /tmp/cVa5ZQtFYf.dsk -m 4 -net none -nographic -monitor null
@@ -99,12 +99,12 @@ Console: 982 characters output
 Keyboard: 0 keys pressed
 Exception: 0 page faults
 Powering off?
-Result:
-PASS```
+	Result:
+		PASS
 
-```Fail-load:
-Output:
-Copying tests/userprog/load-fail to scratch partition?
+	Fail-load:
+	Output:
+		Copying tests/userprog/load-fail to scratch partition?
 Copying tests/userprog/child-args to scratch partition...
 qemu -hda /tmp/CqVQxTLKaz.dsk -m 4 -net none -nographic -monitor null
 PiLo hda1
@@ -143,7 +143,6 @@ Exception: 0 page faults
 Powering off?
 	Result:
 		PASS
-```
 
 ?  Identify two non-trivial potential kernel bugs, and explain how they would have affected your output of this test case. You should express these in this form: ?If your kernel did X instead of Y, then the test case would output Z instead.?. You should identify two different bugs per test case, but you can use the same bug for both of your two test cases. These bugs should be related to your test case (e.g. ?If your kernel had a syntax error, then this test case would not run.? does not 
 	Filesize:
