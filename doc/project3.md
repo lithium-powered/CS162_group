@@ -57,6 +57,7 @@ struct inode_disk
     Uint32_t double;
     Uint32_t triple;
     Uint32_t unused[110];
+    struct lock block_lock;  /*need a lock for moving this disk in and out of cache, and reading/writing to it while in cache*/
   };
 ```
 
@@ -112,7 +113,7 @@ We need to parse the file name to get the right directory. It makes sense that o
 
 - Use a cache.
 Iterating through the cache, if an entry is dirty, it is written back to
-disk and dirty is switched to false. Done every time we have to replace a block in the cache. So if we are 
+disk and dirty is switched to false. Done every constant number of cycles (we would choose this number based on how often we want to iterate through and write-back, tradeoff is that doing this more often saves more data in the event of a crash but the operation is too costly to do too often). So if we are 
 writing a small number of bytes to one sector in a file, then they are first put in cache
 and written to disk all at once in a certain period of time.
 
