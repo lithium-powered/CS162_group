@@ -1,13 +1,3 @@
-Design Document for Project 3: File System
-==========================================
-
-## Group Members
-
-* Albert Weng <albertweng@berkeley.edu>
-* Annie Lin <annie_lin@berkeley.edu>
-* Liquin Yu <liyu@berkeley.edu>
-* Nerissa Lin <lin.nerissa@berkeley.edu>
-
 # Project 3 Design Document
 
 
@@ -27,7 +17,6 @@ struct list_elem_block
   };
 ```
 
-
 Function to replace block_read, same parameters. It will check the cache and try to pull data from there before calling actual block_read function.
 ```
 block_read_c (fs_device, sector_idx, buffer + bytes_read)
@@ -44,13 +33,13 @@ Int cache_block();
 ```
 
 ### Algorithms:
-We first malloc memory for 64 list_elem_block instances. We then use this list as the cache. We replace block_read and block_write with our own functions that will check the cache for blocks before going into disk to get them. We should have a lock for each individual cached block so that other processes can?t access the block when it is being written to. We also implement write back by only writing to disk when we evict a block from the cache. We'll also need a clock variable or struct to keep track of the clock.
+We first malloc memory for 64 list_elem_block instances. We then use this list as the cache. We replace block_read and block_write with our own functions that will check the cache for blocks before going into disk to get them. We should have a lock for each individual cached block so that other processes can?t access the block when it is being written to. We also implement write back by only writing to disk when we evict a block from the cache.
 
 ### Synchronization:
-We obviously need synchronization for the cache. We will need locks on the blocks to make sure 2 threads aren?t writing to the block at the same time. The clock variable or struct will need to be synchronized because two threads should not be trying to change it at the same time.
+We obviously need synchronization for the cache. We will need locks on the blocks to make sure 2 threads aren?t writing to the block at the same time.
 
 ### Rationale:
-Can?t have a lock on the whole cache or else there will be performance issues. Next best thing is to lock on cache elements. Might want to put cache as an array for faster access. We would have to test out different sizes for the number of chances a cached block gets before being up for eviction.
+Can't have a lock on the whole cache or else there will be performance issues. Next best thing is to lock on cache elements. 
 
 
 ## Task 2:
@@ -87,7 +76,7 @@ Following the structure given in lecture seems to be the easiest way to implemen
 
 In inode.c (inode_disk and inode structs):
 ```
-  bool is_dir/file (w/e is easier);  // if inode is a directory or a file
+  bool is_dir/file;  // if inode is a directory or a file
   block_sector_t parent;  //  Parent inode sector number
 
   (for just inode struct)
@@ -99,7 +88,7 @@ In thread.c:
 ```
 
 ### Algorithms:
-A path is broken up into tokens, with each seperated by a '/'. If the first
+A path is broken up into tokens, with each separated by a '/'. If the first
 character of the path is '/', then the root is the current tracked directory. 
 Else, if the first token of the path is '.', then the current tracked
 directory is the current thread's working directory. Else. if the first token is '..',
@@ -112,8 +101,7 @@ Otherwise, the path is invalid unless we are doing create, in which we make that
 of the new file. 
 
 ### Synchronization: 
-We make sure to lock operations per directory, so that
-adding or removing from a directory requires the inode lock for that directory. 
+We make sure to lock operations per directory, so that adding or removing from a directory requires the inode lock for that directory.  Each directory will have its own inode lock.
 
 ### Rationale:
 We need to parse the file name to get the right directory. It makes sense that only one thread can access a directory at a time to prevent conflicts. However, multiple threads should be allowed to access multiple directories. We also need to account for local paths to file system calls, which we do by using the current directory as the start of our search.
@@ -124,14 +112,14 @@ We need to parse the file name to get the right directory. It makes sense that o
 
 - Use a cache.
 Iterating through the cache, if an entry is dirty, it is written back to
-disk and dirty is switched to false. Done every IDK period of time. So if we are 
+disk and dirty is switched to false. Done every time we have to replace a block in the cache. So if we are 
 writing a small number of bytes to one sector in a file, then they are first put in cache
 and written to disk all at once in a certain period of time.
 
 ### read-ahead:
 
 - Use a cache.
-Spawned an additional thread when a block was retrieved from the
+Spawn an additional thread when a block was retrieved from the
 cache to get the next data block sector number from the
 inode and put it into the cache. Thus the process doesn't need to wait on disk for every
 time it needs a new sector.
