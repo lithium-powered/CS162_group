@@ -36,7 +36,6 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /* Inode content. */
   };
 
 /* Returns the block device sector that contains byte offset POS
@@ -57,11 +56,20 @@ byte_to_sector (const struct inode *inode, off_t pos)
    returns the same `struct inode'. */
 static struct list open_inodes;
 
+/* Added */
+struct cache_elem *cache[CACHE_SIZE];
+struct lock globalCacheLock;
+int clock_hand;
+
+
 /* Initializes the inode module. */
 void
 inode_init (void) 
 {
   list_init (&open_inodes);
+  cache_init(cache);
+  lock_init(&globalCacheLock);
+  clock_hand = CACHE_SIZE - 1;
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -220,15 +228,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
+
+      //cache_read(sector_idx, buffer + bytes_read, chunk_size);
+      /*
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
-          /* Read full sector directly into caller's buffer. */
           block_read (fs_device, sector_idx, buffer + bytes_read);
         }
       else 
         {
-          /* Read sector into bounce buffer, then partially copy
-             into caller's buffer. */
           if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);
@@ -238,6 +246,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
           block_read (fs_device, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
         }
+      */
       
       /* Advance. */
       size -= chunk_size;
@@ -281,24 +290,19 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
+      /*
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
-          /* Write full sector directly to disk. */
           block_write (fs_device, sector_idx, buffer + bytes_written);
         }
       else 
         {
-          /* We need a bounce buffer. */
           if (bounce == NULL) 
             {
               bounce = malloc (BLOCK_SECTOR_SIZE);
               if (bounce == NULL)
                 break;
             }
-
-          /* If the sector contains data before or after the chunk
-             we're writing, then we need to read in the sector
-             first.  Otherwise we start with a sector of all zeros. */
           if (sector_ofs > 0 || chunk_size < sector_left) 
             block_read (fs_device, sector_idx, bounce);
           else
@@ -306,6 +310,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           block_write (fs_device, sector_idx, bounce);
         }
+      */
+
+      cache_write(sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
 
       /* Advance. */
       size -= chunk_size;
@@ -342,4 +349,88 @@ off_t
 inode_length (const struct inode *inode)
 {
   return inode->data.length;
+}
+
+/* Added */
+void cache_init(struct cache_elem **cache){
+  int i;
+  for(i = 0; i < CACHE_SIZE; i++){
+    wipe_cache_elem(cache[i]);
+    lock_init(&(cache[i]->lock));
+  }
+}
+
+/* empties a cache slot */
+void wipe_cache_elem(struct cache_elem *elem){
+  elem->sector = 0;
+  elem->dirty = false;
+  elem->empty = true;
+  elem->chances = 0;
+  memset(elem->data, 0, BLOCK_SECTOR_SIZE);
+}
+
+/* interface to read from cache first */
+void cache_read(block_sector_t sector, void *buffer, int chunk_size){
+  int i;
+  lock_aquire(&globalCacheLock);
+  for(i = 0; i < CACHE_SIZE; i++){
+    if(!cache[i]->empty && (elem->sector == sector)){
+      //do we need to do a lock check? in case of write?
+      memcpy (buffer, cache[i]->data, chunk_size);
+      return;
+    }
+  }
+  int cache_to_evict = next_free_cache_slot();
+  if (cache[cache_to_evict]->dirty == true){
+    block_write (fs_device, cache[cache_to_evict]->sector, 
+      cache[cache_to_evict]->data);
+  }
+  struct cache_elem *cache_slot;
+  cache_slot = cache[cache_to_evict];
+  cache_slot->sector = sector;
+  cache_slot->dirty = false;
+  cache_slot->empty = false;
+  cache_slot->chances = CLOCK_CHANCES;
+  block_read(fs_device, sector, cache_slot->data);
+  memcpy (buffer, cache[cache_to_evict]->data, chunk_size);
+  lock_release(&globalCacheLock);
+}
+
+/* interface to write to cache first */
+void cache_write(block_sector_t sector, const void *buffer, int chunk_size, int sector_ofs){
+  int i;
+  lock_aquire(&globalCacheLock);
+  for(i = 0; i < CACHE_SIZE; i++){
+    if(!cache[i]->empty && (elem->sector == sector)){
+      //do we need to do a lock check? in case of write?
+      memcpy (cache[i]->data + sector_ofs, buffer, chunk_size);
+      cache[i]->dirty = true;
+      return;
+    }
+  }  
+  int cache_to_evict = next_free_cache_slot();
+  if (cache[cache_to_evict]->dirty == true){
+    block_write (fs_device, cache[cache_to_evict]->sector, 
+      cache[cache_to_evict]->data);
+  }
+  struct cache_elem *cache_slot;
+  cache_slot = cache[cache_to_evict];
+  cache_slot->sector = sector;
+  cache_slot->dirty = true;
+  cache_slot->empty = false;
+  cache_slot->chances = CLOCK_CHANCES;
+  block_read(fs_device, sector, cache_slot->data);
+  memcpy (cache[cache_to_evict]->data + sector_ofs, buffer, chunk_size);
+  lock_release(&globalCacheLock);
+}
+
+int next_free_cache_slot(){
+  while(true){
+    if(cache[clock_hand]->empty || (cache[clock_hand]->chances == 0)){
+      return clock_hand;
+    }else{
+      cache[clock_hand]->chances = cache[clock_hand]->chances - 1;
+      clock_hand = (clock_hand + 1) % CACHE_SIZE;
+    }
+  }
 }

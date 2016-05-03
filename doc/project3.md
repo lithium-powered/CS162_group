@@ -27,7 +27,7 @@ struct cache_elem
 Function to replace block_read, same parameters. It will check the cache and try to pull data from there before calling actual block_read function.
 ```
 //defined in inode.c
-buffered_write (sector_idx)
+buffered_read (sector_idx)
 ```
 
 Function to replace block_write.

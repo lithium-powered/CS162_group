@@ -14,8 +14,6 @@
 
 static void syscall_handler (struct intr_frame *);
 
-//Task3
-struct lock filesys_globlock;
 //void check_args(struct intr_frame *f, int n);
 int ptr_check(const void *vaddr);
 struct file* get_file_from_fd(int fd);
@@ -40,7 +38,6 @@ struct fd_elem{ //struct for multiple open/closes
 void
 syscall_init (void) 
 {
-  lock_init(&filesys_globlock); //Initialize Global Lock
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -180,21 +177,16 @@ void exit(int status){
 }
 
 bool create (const char *file, unsigned initial_size) {
-	lock_acquire(&filesys_globlock);
-	bool toReturn = filesys_create(file, initial_size);
-	lock_release(&filesys_globlock);
+	bool toReturn = filesys_create(file, initial_size
 	return toReturn;
 }
 
 bool remove (const char *file) {
-	lock_acquire(&filesys_globlock);
-	bool toReturn = filesys_remove(file);
-	lock_release(&filesys_globlock);
+	bool toReturn = filesys_remove(file
 	return toReturn;
 }
 
 int open (const char *file) {
-	lock_acquire(&filesys_globlock);
 	struct file *f = filesys_open(file);
 	if (f){
 
@@ -202,101 +194,80 @@ int open (const char *file) {
 		struct fd_elem *fde = (struct fd_elem*)malloc(sizeof(struct fd_elem));
 		if (!fde){ //failed
 			file_close(f);
-			lock_release(&filesys_globlock);
 			return -1;
 		}
 		fde->fd = t->fd;
 		fde->file = f;
 		t->fd = t->fd + 1; //open-twice test
 		list_push_back(&t->fd_list, &fde->elem);
-
-		lock_release(&filesys_globlock);
 		return fde->fd;
 
-	}else{
-		lock_release(&filesys_globlock);
+	}else
 		return -1;
 	}
 }
 
 int filesize (int fd) {
-	lock_acquire(&filesys_globlock);
 	struct file *f = get_file_from_fd(fd);
 	if (f){
-		int toReturn = file_length(f);
-		lock_release(&filesys_globlock);
+		int toReturn = file_length(f)
 		return toReturn;
-	}else{
-		lock_release(&filesys_globlock);
+	}else
 		return -1;
 	}
 }
 
 int read (int fd, void *buffer, unsigned size) {
-	lock_acquire(&filesys_globlock);
 	if (fd == STDIN_FILENO){ //edge case of STDIN
 		uint8_t *buf = (uint8_t *) buffer;
 		unsigned i;
 		for (i = 0; i < size; i ++){
 			buf[i] = input_getc();
-		}
-		lock_release(&filesys_globlock);
+		
 		return size;
 	}
 	struct file *f = get_file_from_fd(fd);
 	if (f){
-		int toReturn = file_read(f,buffer,size);
-		lock_release(&filesys_globlock);
+		int toReturn = file_read(f,buffer,size)
 		return toReturn;
-	}else{
-		lock_release(&filesys_globlock);
+	}else
 		return -1;
 	}
 }
 
 int write (int fd, const void *buffer, unsigned size) {
-	lock_acquire(&filesys_globlock);
 	if (fd == STDOUT_FILENO){ //edge case to STDOUT
-		putbuf(buffer, size);
-		lock_release(&filesys_globlock);
+		putbuf(buffer, size)
 		return size;
 	}
 	struct file *f = get_file_from_fd(fd);
 	if (f){
-		int toReturn = file_write(f,buffer,size);
-		lock_release(&filesys_globlock);
+		int toReturn = file_write(f,buffer,size)
 		return toReturn;
-	}else{
-		lock_release(&filesys_globlock);
+	}else
 		return -1;
 	}
 }
 
 void seek (int fd, unsigned position) {
-	lock_acquire(&filesys_globlock);
 	struct file *f = get_file_from_fd(fd);
 	if (f){
 		file_seek(f, position);
-	}
-	lock_release(&filesys_globlock);
+
 }
 
 unsigned tell (int fd) {
-	lock_acquire(&filesys_globlock);
 	struct file *f = get_file_from_fd(fd);
 	if (f){
-		off_t toReturn = file_tell(f);
-		lock_release(&filesys_globlock);
+		off_t toReturn = file_tell(f)
 		return toReturn;
-	}else{
-		lock_release(&filesys_globlock);
+	}else
 		return -1;
 	}
 }
 
 void close (int fd) {
 
-	lock_acquire(&filesys_globlock);
 	struct thread *t = thread_current();
 
 	struct list_elem *i;
@@ -308,12 +279,11 @@ void close (int fd) {
 			list_remove(&fde->elem);
 			free(fde);
 			if (fd != -1){
-				lock_release(&filesys_globlock);
+
 				return;
 			}
 		}
-	}
-	lock_release(&filesys_globlock);
+
 	return;
 }
 
