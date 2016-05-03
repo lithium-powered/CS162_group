@@ -68,8 +68,8 @@ void
 inode_init (void) 
 {
   list_init (&open_inodes);
-  cache_init(cache);
   lock_init(&globalCacheLock);
+  cache_init(cache);
   clock_hand = CACHE_SIZE - 1;
 }
 
