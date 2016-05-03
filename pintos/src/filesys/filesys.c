@@ -28,6 +28,10 @@ filesys_init (bool format)
     do_format ();
 
   free_map_open ();
+
+  lock_init(&globalCacheLock);
+  cache_init(cache);
+  clock_hand = CACHE_SIZE - 1;
 }
 
 /* Shuts down the file system module, writing any unwritten data

@@ -45,6 +45,12 @@ void cache_read(block_sector_t, void *buffer, int, int);
 void cache_write(block_sector_t, const void *buffer, int, int);
 int next_free_cache_slot(void);
 
+/* Added */
+struct cache_elem *cache[CACHE_SIZE];
+static struct lock globalCacheLock;
+uint32_t clock_hand;
+
+
  /* ***** */
 
 #endif /* filesys/inode.h */

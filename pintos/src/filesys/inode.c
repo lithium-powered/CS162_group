@@ -68,9 +68,6 @@ void
 inode_init (void) 
 {
   list_init (&open_inodes);
-  lock_init(&globalCacheLock);
-  cache_init(cache);
-  clock_hand = CACHE_SIZE - 1;
 }
 
 /* Initializes an inode with LENGTH bytes of data and
