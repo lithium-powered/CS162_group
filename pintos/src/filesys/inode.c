@@ -59,7 +59,7 @@ static struct list open_inodes;
 
 /* Added */
 struct cache_elem *cache[CACHE_SIZE];
-struct lock globalCacheLock;
+static struct lock globalCacheLock;
 uint32_t clock_hand;
 
 
