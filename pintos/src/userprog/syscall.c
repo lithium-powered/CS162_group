@@ -27,7 +27,6 @@ struct child{
 
 static void syscall_handler (struct intr_frame *);
 
-struct lock filesys_globlock;
 void check_args(struct intr_frame *f, int n);
 int ptr_check(const void *vaddr);
 struct file* get_file_from_fd(int fd);
@@ -52,7 +51,6 @@ struct fd_elem{ //struct for multiple open/closes
 void
 syscall_init (void) 
 {
-  lock_init(&filesys_globlock); //Initialize Global Lock
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -220,30 +218,30 @@ void exit(int status){
 
 //Create a new file
 bool create (const char *file, unsigned initial_size) {
-    lock_acquire(&filesys_globlock);
+    
     bool toReturn = filesys_create(file, initial_size);
-    lock_release(&filesys_globlock);
+    
     return toReturn;
 }
 
 
 //Remove an existing file
 bool remove (const char *file) {
-    lock_acquire(&filesys_globlock);
+    
     bool toReturn = filesys_remove(file);
-    lock_release(&filesys_globlock);
+    
     return toReturn;
 }
 
 int open (const char *file) {
-    lock_acquire(&filesys_globlock);
+    
     struct file *f = filesys_open(file);
     if (f){
         struct thread *t = thread_current();
         struct fd_elem *fde = (struct fd_elem*)malloc(sizeof(struct fd_elem));
         if (!fde){ //failed
             file_close(f);
-            lock_release(&filesys_globlock);
+            
             return -1;
         }
         fde->fd = t->fd;
@@ -251,67 +249,67 @@ int open (const char *file) {
         t->fd = t->fd + 1; //open-twice test
         list_push_back(&t->fd_list, &fde->elem);
 
-        lock_release(&filesys_globlock);
+        
         return fde->fd;
 
     }else{
-        lock_release(&filesys_globlock);
+        
         return -1;
     }
 }
 
 //Get the size of the file
 int filesize (int fd) {
-    lock_acquire(&filesys_globlock);
+    
     struct file *f = get_file_from_fd(fd);
     if (f){
         int toReturn = file_length(f);
-        lock_release(&filesys_globlock);
+        
         return toReturn;
     }else{
-        lock_release(&filesys_globlock);
+        
         return -1;
     }
 }
 
 //Read from the file
 int read (int fd, void *buffer, unsigned size) {
-    lock_acquire(&filesys_globlock);
+    
     if (fd == STDIN_FILENO){ //edge case to STDIN
         uint8_t *buf = (uint8_t *) buffer;
         unsigned i;
         for (i = 0; i < size; i ++){
             buf[i] = input_getc();
         }
-        lock_release(&filesys_globlock);
+        
         return size;
     }
     struct file *f = get_file_from_fd(fd);
     if (f){
         int toReturn = file_read(f,buffer,size);
-        lock_release(&filesys_globlock);
+        
         return toReturn;
     }else{
-        lock_release(&filesys_globlock);
+        
         return -1;
     }
 }
 
 //Write to the file
 int write (int fd, const void *buffer, unsigned size) {
-    lock_acquire(&filesys_globlock);
+    
     if (fd == STDOUT_FILENO){ //edge case to STDOUT
         putbuf(buffer, size);
-        lock_release(&filesys_globlock);
+        
         return size;
     }
     struct file *f = get_file_from_fd(fd);
     if (f){
         int toReturn = file_write(f,buffer,size);
-        lock_release(&filesys_globlock);
+        
         return toReturn;
     }else{
-        lock_release(&filesys_globlock);
+        
         return -1;
     }
 }
@@ -319,24 +317,24 @@ int write (int fd, const void *buffer, unsigned size) {
 
 //Seek a position in the file
 void seek (int fd, unsigned position) {
-    lock_acquire(&filesys_globlock);
+    
     struct file *f = get_file_from_fd(fd);
     if (f){
         file_seek(f, position);
     }
-    lock_release(&filesys_globlock);
+    
 }
 
 //Return the position of the next file or byte to be written
 unsigned tell (int fd) {
-    lock_acquire(&filesys_globlock);
+    
     struct file *f = get_file_from_fd(fd);
     if (f){
         off_t toReturn = file_tell(f);
-        lock_release(&filesys_globlock);
+        
         return toReturn;
     }else{
-        lock_release(&filesys_globlock);
+        
         return -1;
     }
 }
@@ -344,7 +342,7 @@ unsigned tell (int fd) {
 //Close the file referenced by the int fd
 void close (int fd) {
 
-    lock_acquire(&filesys_globlock);
+    
     struct thread *t = thread_current();
 
     struct list_elem *i;
@@ -360,7 +358,7 @@ void close (int fd) {
             break;
         }
     }
-    lock_release(&filesys_globlock);
+    
     return;
 }
 

@@ -94,14 +94,14 @@ inode_create (block_sector_t sector, off_t length)
       disk_inode->magic = INODE_MAGIC;
       if (free_map_allocate (sectors, &disk_inode->start)) 
         {
-          block_write (fs_device, sector, disk_inode);
+          cache_write(sector, disk_inode, BLOCK_SECTOR_SIZE, 0);
           if (sectors > 0) 
             {
               static char zeros[BLOCK_SECTOR_SIZE];
               size_t i;
               
               for (i = 0; i < sectors; i++) 
-                block_write (fs_device, disk_inode->start + i, zeros);
+                cache_write (disk_inode->start + i, zeros, BLOCK_SECTOR_SIZE, 0);
             }
           success = true; 
         } 
@@ -142,7 +142,7 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  block_read (fs_device, inode->sector, &inode->data);
+  cache_read (inode->sector, &inode->data, BLOCK_SECTOR_SIZE, 0);
   return inode;
 }
 
@@ -225,9 +225,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         break;
 
 
-      //cache_read(sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
+      cache_read(sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
       
-      
+      /*
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           block_read (fs_device, sector_idx, buffer + bytes_read);
@@ -243,7 +243,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
           block_read (fs_device, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
         }
-        
+        */
       
       
       /* Advance. */
@@ -286,7 +286,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
-      
+      /*
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           block_write (fs_device, sector_idx, buffer + bytes_written);
@@ -306,9 +306,9 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           block_write (fs_device, sector_idx, bounce);
         }
-      
+      */
 
-      //cache_write(sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
+      cache_write(sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
 
       /* Advance. */
       size -= chunk_size;
@@ -368,7 +368,6 @@ void wipe_cache_elem(struct cache_elem *elem){
 /* interface to read from cache first */
 void cache_read(block_sector_t sector, void *buffer, int chunk_size, int sector_ofs){
   int i;
-  lock_acquire(&globalCacheLock);
   for(i = 0; i < CACHE_SIZE; i++){
     if(!cache[i]->empty && (cache[i]->sector == sector)){
       //do we need to do a lock check? in case of write?
@@ -378,7 +377,7 @@ void cache_read(block_sector_t sector, void *buffer, int chunk_size, int sector_
     }
   }
   int cache_to_evict = next_free_cache_slot();
-  if (cache[cache_to_evict]->dirty == true){
+  if (cache[cache_to_evict]->dirty){
     block_write (fs_device, cache[cache_to_evict]->sector, 
       cache[cache_to_evict]->data);
   }
@@ -390,24 +389,22 @@ void cache_read(block_sector_t sector, void *buffer, int chunk_size, int sector_
   cache_slot->chances = CLOCK_CHANCES;
   block_read(fs_device, sector, cache_slot->data);
   memcpy (buffer, cache_slot->data + sector_ofs, chunk_size);
-  lock_release(&globalCacheLock);
 }
 
 /* interface to write to cache first */
 void cache_write(block_sector_t sector, const void *buffer, int chunk_size, int sector_ofs){
   int i;
-  lock_acquire(&globalCacheLock);
   for(i = 0; i < CACHE_SIZE; i++){
     if(!cache[i]->empty && (cache[i]->sector == sector)){
       //do we need to do a lock check? in case of write?
-      memcpy (cache[i]->data, buffer + sector_ofs, chunk_size);
+      memcpy (cache[i]->data + sector_ofs, buffer, chunk_size);
       cache[i]->dirty = true;
       cache[i]->chances = CLOCK_CHANCES;
       return;
     }
   }  
   int cache_to_evict = next_free_cache_slot();
-  if (cache[cache_to_evict]->dirty == true){
+  if (cache[cache_to_evict]->dirty){
     block_write (fs_device, cache[cache_to_evict]->sector, 
       cache[cache_to_evict]->data);
   }
@@ -418,17 +415,16 @@ void cache_write(block_sector_t sector, const void *buffer, int chunk_size, int 
   cache_slot->empty = false;
   cache_slot->chances = CLOCK_CHANCES;
   block_read(fs_device, sector, cache_slot->data);
-  memcpy (cache_slot->data, buffer + sector_ofs, chunk_size);
-  lock_release(&globalCacheLock);
+  memcpy (cache_slot->data + sector_ofs, buffer, chunk_size);
 }
 
 int next_free_cache_slot(){
   while(true){
+    clock_hand = (clock_hand + 1) % CACHE_SIZE;
     if(cache[clock_hand]->empty || (cache[clock_hand]->chances == 0)){
       return clock_hand;
     }else{
       cache[clock_hand]->chances = cache[clock_hand]->chances - 1;
-      clock_hand = (clock_hand + 1) % CACHE_SIZE;
     }
   }
 }

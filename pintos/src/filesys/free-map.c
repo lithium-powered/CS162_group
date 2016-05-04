@@ -4,6 +4,7 @@
 #include "filesys/file.h"
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
+#include "threads/malloc.h"
 
 static struct file *free_map_file;   /* Free map file. */
 static struct bitmap *free_map;      /* Free map, one bit per sector. */
@@ -64,13 +65,6 @@ free_map_open (void)
 void
 free_map_close (void) 
 {
-  int i;
-  for(i = 0; i < CACHE_SIZE; i++){
-    if(!cache[i]->empty && (cache[i]->dirty)){
-      //do we need to do a lock check? in case of write?
-      block_write (fs_device, cache[i]->sector, cache[i]->data);
-    }
-  }
   file_close (free_map_file);
 }
 

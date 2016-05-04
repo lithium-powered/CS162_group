@@ -40,7 +40,14 @@ filesys_init (bool format)
 void
 filesys_done (void) 
 {
-  
+  int i;
+  for(i = 0; i < CACHE_SIZE; i++){
+    if(!cache[i]->empty && (cache[i]->dirty)){
+      //do we need to do a lock check? in case of write?
+      block_write (fs_device, cache[i]->sector, cache[i]->data);
+      free(cache[i]);
+    }
+  } 
   free_map_close ();
 }
 
