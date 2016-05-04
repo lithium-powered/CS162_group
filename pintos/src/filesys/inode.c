@@ -59,7 +59,6 @@ static struct list open_inodes;
 
 /* Added */
 struct cache_elem *cache[CACHE_SIZE];
-static struct lock globalCacheLock;
 uint32_t clock_hand;
 
 
@@ -208,6 +207,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
+  uint8_t *bounce = NULL;
   while (size > 0) 
     {
       /* Disk sector to read, starting byte offset within sector. */
@@ -225,8 +225,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
         break;
 
 
-      cache_read(sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
-      /*
+      //cache_read(sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
+      
+      
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           block_read (fs_device, sector_idx, buffer + bytes_read);
@@ -242,14 +243,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
           block_read (fs_device, sector_idx, bounce);
           memcpy (buffer + bytes_read, bounce + sector_ofs, chunk_size);
         }
-      */
+        
+      
       
       /* Advance. */
       size -= chunk_size;
       offset += chunk_size;
       bytes_read += chunk_size;
     }
-
+  free(bounce);
   return bytes_read;
 }
 
@@ -264,7 +266,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
 {
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
-
+  uint8_t *bounce = NULL;
   if (inode->deny_write_cnt)
     return 0;
 
@@ -284,7 +286,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (chunk_size <= 0)
         break;
 
-      /*
+      
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           block_write (fs_device, sector_idx, buffer + bytes_written);
@@ -304,16 +306,16 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
           memcpy (bounce + sector_ofs, buffer + bytes_written, chunk_size);
           block_write (fs_device, sector_idx, bounce);
         }
-      */
+      
 
-      cache_write(sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
+      //cache_write(sector_idx, buffer + bytes_written, chunk_size, sector_ofs);
 
       /* Advance. */
       size -= chunk_size;
       offset += chunk_size;
       bytes_written += chunk_size;
     }
-
+    free(bounce);
   return bytes_written;
 }
 
@@ -347,12 +349,11 @@ inode_length (const struct inode *inode)
 /* Added */
 void cache_init(struct cache_elem **cache){
   int i;
-  lock_acquire(&globalCacheLock);
   for(i = 0; i < CACHE_SIZE; i++){
-    wipe_cache_elem(cache[i]);
+    cache[i] = malloc(sizeof(struct cache_elem));
     lock_init(&(cache[i]->lock));
+    wipe_cache_elem(cache[i]);
   }
-  lock_release(&globalCacheLock);
 }
 
 /* empties a cache slot */

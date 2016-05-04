@@ -9,6 +9,7 @@
 
 /* Partition that contains the file system. */
 struct block *fs_device;
+struct lock globalCacheLock;
 
 static void do_format (void);
 
@@ -21,6 +22,10 @@ filesys_init (bool format)
   if (fs_device == NULL)
     PANIC ("No file system device found, can't initialize file system.");
 
+  lock_init(&globalCacheLock);
+  cache_init((struct cache_elem **) &cache);
+  clock_hand = CACHE_SIZE - 1;
+
   inode_init ();
   free_map_init ();
 
@@ -28,10 +33,6 @@ filesys_init (bool format)
     do_format ();
 
   free_map_open ();
-
-  lock_init(&globalCacheLock);
-  cache_init(cache);
-  clock_hand = CACHE_SIZE - 1;
 }
 
 /* Shuts down the file system module, writing any unwritten data

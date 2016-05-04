@@ -25,8 +25,6 @@ off_t inode_length (const struct inode *);
 #define CACHE_SIZE 64
 #define CLOCK_CHANCES 3
 
-struct cache_elem *cache[CACHE_SIZE];
-
 /* struct of an element inside the cache */
 struct cache_elem
   {
@@ -47,7 +45,6 @@ int next_free_cache_slot(void);
 
 /* Added */
 struct cache_elem *cache[CACHE_SIZE];
-static struct lock globalCacheLock;
 uint32_t clock_hand;
 
 
