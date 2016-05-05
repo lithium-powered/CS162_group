@@ -43,17 +43,10 @@ struct inode
     //struct inode_disk data;             /* Inode content. */ Part 2 remove this
   };
 
-/* Returns the block device sector that contains byte offset POS
-   within INODE.
-   Returns -1 if INODE does not contain data for a byte at offset
-   POS. */
 
-   //Part 2 modified this
-static block_sector_t
-byte_to_sector (const struct inode *inode, off_t pos) 
+bool inode_resize(const struct inode *inode, off_t pos)
 {
 
-  ASSERT (inode != NULL);
   struct inode_disk data;
   block_read (fs_device, inode->sector, &data);
 
@@ -96,13 +89,13 @@ byte_to_sector (const struct inode *inode, off_t pos)
     int index = (int)(double)(int)(pos/512);
     //printf("index is : %d",index);
     //printf("direct is %s",data.direct[0]);
-    return &data.direct[index];
+    return data.direct[index];
   }
   if (pos<(512*123)+(512*512/4)){
     int index = (int)(double)(int)((pos-512*123)/512);
     block_sector_t indirect[128];
     block_read(fs_device, data.indirect, &indirect);
-    return &indirect[index];
+    return indirect[index];
   }
   if (pos<(512*123)+(512*512/4)+(128*128*512)){
     int index1 = (int)(double)(int)((pos-(512*123)-(512*512/4))/(512*128));
@@ -111,24 +104,38 @@ byte_to_sector (const struct inode *inode, off_t pos)
     block_read(fs_device, data.doubleind, &doubleind);
     block_sector_t finalind[128];
     block_read(fs_device, doubleind[index1], &finalind);
-    return &finalind[index2];
+    return finalind[index2];
   }
   //out of bounds of file
   return -1;
 
+}
 
+
+/* Returns the block device sector that contains byte offset POS
+   within INODE.
+   Returns -1 if INODE does not contain data for a byte at offset
+   POS. */
+
+   //Part 2 modified this
+static block_sector_t
+byte_to_sector (const struct inode *inode, off_t pos) 
+{
+
+  ASSERT (inode != NULL);
+  
   //Original Code
   // if (pos < inode->data.length)
   //   return inode->data.start + pos / BLOCK_SECTOR_SIZE;
   // else
   //   return -1;
 
-  // struct inode_disk data;
-  // block_read (fs_device, inode->sector, &data);
-  // if (pos < data.length)
-  //    return data.start + pos / BLOCK_SECTOR_SIZE;
-  // else
-  //    return -1;
+   struct inode_disk data;
+   block_read (fs_device, inode->sector, &data);
+   if (pos < data.length)
+      return data.start + pos / BLOCK_SECTOR_SIZE;
+   else
+      return -1;
 
 }
 
@@ -373,7 +380,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE)
         {
           //printf("block size %d",fs_device->size);
-          //printf("block sector %d", sector_idx);
+          //printf("block sector %"PRDSNu"", sector_idx);
           /* Write full sector directly to disk. */
           block_write (fs_device, sector_idx, buffer + bytes_written);
         }
