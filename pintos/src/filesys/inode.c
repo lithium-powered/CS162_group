@@ -117,7 +117,6 @@ bool inode_resize(const struct inode *inode, off_t pos)
    Returns -1 if INODE does not contain data for a byte at offset
    POS. */
 
-   //Part 2 modified this
 static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
