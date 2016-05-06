@@ -17,7 +17,10 @@ struct inode_disk
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[125];               /* Not used. */
+    //uint32_t unused[125];               /* Not used. */
+    block_sector_t direct[123];         
+    block_sector_t indirect;
+    block_sector_t doubleind;
   };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -36,7 +39,7 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;
+  //  struct inode_disk data; //Part 2 removed this
   };
 
 /* Returns the block device sector that contains byte offset POS
@@ -46,11 +49,102 @@ struct inode
 static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos) 
 {
+
   ASSERT (inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  else
+  struct inode_disk data;
+  block_sector_t addr;
+  
+  cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
+
+  if (pos < data.length){
+    return data.start + pos / BLOCK_SECTOR_SIZE;
+  }
+  else{
     return -1;
+  }
+
+
+  if (pos>=data.length){
+    block_sector_t curr;
+      if (pos<512*123){
+        int index = (int)(double)(int)(pos/512);
+        curr = data.direct[index];
+        free_map_allocate(1,&addr);
+        cache_write(inode->sector, &addr, 4, (sizeof(block_sector_t)) + (sizeof(off_t)) + (sizeof(unsigned)) + (sizeof(block_sector_t)) * index);
+      }
+      else if (pos<(512*123)+(512*512/4)){
+        //Check for errors
+        int index = (int)(double)(int)((pos-512*123)/512);
+        block_sector_t indirect[128];
+        
+        cache_read (data.indirect, &indirect, 128, 0);
+        //block_read(fs_device, data.indirect, &indirect);
+        curr = indirect[index];
+        cache_write(inode->sector, &addr, 4, (sizeof(block_sector_t)) + (sizeof(off_t)) + (sizeof(unsigned)) + (sizeof(block_sector_t)) * index);
+
+      }
+      else if (pos<(512*123)+(512*512/4)+(128*128*512)){
+        int index1 = (int)(double)(int)((pos-(512*123)-(512*512/4))/(512*128));
+        int index2 = (int)(double)(int)((pos-(512*123)-(512*512/4)-(index1*512*128))/512);
+
+        block_sector_t doubleind[128];
+        cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
+        cache_read (data.doubleind, &doubleind, 128, 0);
+        //block_read(fs_device, data.doubleind, &doubleind);
+        block_sector_t finalind[128];
+        cache_read (doubleind[index1], &finalind, 128, 0);
+        //block_read(fs_device, doubleind[index1], &finalind);
+        curr = finalind[index2];
+      }
+      block_sector_t addr;
+      free_map_allocate(1,&addr);
+      //cache_write(addr,curr);
+      return addr;
+  }
+
+  // if (pos<512*123){
+  //   //printf("pos is : %d",pos);
+  //   int index = (int)(double)(int)(pos/512);
+  //   //printf("index is : %d",index);
+  //   //printf("direct is %s",data.direct[0]);
+  //   return data.direct[index];
+  // }
+/*  if (pos<(512*123)+(512*512/4)){
+    int index = (int)(double)(int)((pos-512*123)/512);
+    block_sector_t indirect[128];
+    block_read(fs_device, data.indirect, &indirect);
+    return indirect[index];
+  }
+  if (pos<(512*123)+(512*512/4)+(128*128*512)){
+    int index1 = (int)(double)(int)((pos-(512*123)-(512*512/4))/(512*128));
+    int index2 = (int)(double)(int)((pos-(512*123)-(512*512/4)-(index1*512*128))/512);
+    block_sector_t doubleind[128];
+    block_read(fs_device, data.doubleind, &doubleind);
+    block_sector_t finalind[128];
+    block_read(fs_device, doubleind[index1], &finalind);
+    return finalind[index2];
+  }
+  //out of bounds of file
+  return -1;*/
+
+
+/*  if (pos<512*123){
+    printf("pos is : %d",pos);
+    int index = (int)(double)(int)(pos/512);
+    printf("index is : %d",index);
+    printf("direct is %s",data.direct[0]);
+    
+    free_map_allocate(1,data.direct[index]);
+    return data.direct[index];
+  }*/
+
+
+/*  ASSERT (inode != NULL);
+  
+  if (pos < data.length)
+    return data.start + pos / BLOCK_SECTOR_SIZE;
+  else
+    return -1;*/
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -142,7 +236,8 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  cache_read (inode->sector, &inode->data, BLOCK_SECTOR_SIZE, 0);
+  struct inode_disk data;
+  cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
   return inode;
 }
 
@@ -181,9 +276,11 @@ inode_close (struct inode *inode)
       /* Deallocate blocks if removed. */
       if (inode->removed) 
         {
+          struct inode_disk data;
+          cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
           free_map_release (inode->sector, 1);
-          free_map_release (inode->data.start,
-                            bytes_to_sectors (inode->data.length)); 
+          free_map_release (data.start,
+                            bytes_to_sectors (data.length)); 
         }
 
       free (inode); 
@@ -343,7 +440,9 @@ inode_allow_write (struct inode *inode)
 off_t
 inode_length (const struct inode *inode)
 {
-  return inode->data.length;
+  struct inode_disk data;
+  cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
+  return data.length;
 }
 
 /* Added */
