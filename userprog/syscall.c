@@ -287,3 +287,6 @@ void close (int fd) {
 	return;
 }
 
+
+/*PART 2 add a new syscall here for inumber(int fd)?*/
+

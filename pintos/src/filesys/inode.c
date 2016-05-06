@@ -47,12 +47,11 @@ struct inode
 bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) {
   //printf("resizing %d",size);
   block_sector_t indirectaddr = id->indirect;
-
+  block_sector_t bufferSector;
+  int j = 0;
   block_sector_t sector;
   off_t ofs;
   block_sector_t writer;
-  block_sector_t bufferSector;
-
   int i = 0;
   while (i<123){
     if (size <= 512 * i && id->direct[i] != 0) {
@@ -148,7 +147,7 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
 
       //buffer to contain the actual pages of data 
       block_sector_t buffer2[128];
-      int j = 0;
+      j = 0;
       while (j<128){
         //iterating for 128 pointers again
         if ((size <= (123 + 128) * 512 + 512 * i * 128 + j * 512) && buffer[i] != 0){

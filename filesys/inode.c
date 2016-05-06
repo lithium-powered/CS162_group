@@ -12,6 +12,10 @@
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+
+
+/*PART 2 add elements to this struct */
+
 struct inode_disk
   {
     block_sector_t start;               /* First data sector. */
@@ -28,6 +32,8 @@ bytes_to_sectors (off_t size)
   return DIV_ROUND_UP (size, BLOCK_SECTOR_SIZE);
 }
 
+
+/*Part 2
 /* In-memory inode. */
 struct inode 
   {
@@ -77,6 +83,8 @@ inode_init (void)
    device.
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
+
+/*PART 2 initialize doubly/singly indirect pointers and other new elements */
 bool
 inode_create (block_sector_t sector, off_t length)
 {
@@ -263,6 +271,11 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
    less than SIZE if end of file is reached or an error occurs.
    (Normally a write at end of file would extend the inode, but
    growth is not yet implemented.) */
+
+
+
+/*PART 2 modify this function to add to the doubly/indirect address space with extended file space when
+write past EOF*/
 off_t
 inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 

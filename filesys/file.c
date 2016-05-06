@@ -91,6 +91,9 @@ file_read_at (struct file *file, void *buffer, off_t size, off_t file_ofs)
    (Normally we'd grow the file in that case, but file growth is
    not yet implemented.)
    Advances FILE's position by the number of bytes read. */
+
+/*PART 2 make sure this function is compatible with inode_write_at*/
+
 off_t
 file_write (struct file *file, const void *buffer, off_t size) 
 {
@@ -98,6 +101,9 @@ file_write (struct file *file, const void *buffer, off_t size)
   file->pos += bytes_written;
   return bytes_written;
 }
+
+
+/*PART 2 make sure this function is compatible with inode_write_at*/
 
 /* Writes SIZE bytes from BUFFER into FILE,
    starting at offset FILE_OFS in the file.
