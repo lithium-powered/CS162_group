@@ -51,6 +51,8 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
   block_sector_t sector;
   off_t ofs;
   block_sector_t writer;
+  block_sector_t bufferSector;
+
   int i = 0;
   while (i<123){
     if (size <= 512 * i && id->direct[i] != 0) {
@@ -112,11 +114,6 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
   cache_write(origsector, &size, sizeof(size),ofs);
   //id->length = size;
 
-
-
-
-
-/*
   if (id->doubleind == 0 && size <= 123 * 512 + 512 * 512 / 4) {
     return true;
   }
@@ -128,7 +125,8 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
       return false;
     }
     writer = origsector;
-    cache_write(writer, &sector, sizeof(sector), sizeof(off_t)+sizeof(unsigned)+123*sizeof(block_sector_t)+sizeof(block_sector_t));
+    indirectaddr = sector;
+    cache_write(writer, &sector, sizeof(sector), sizeof(off_t)+sizeof(unsigned)+123*sizeof(block_sector_t)+sizeof(block_sector_t) + sizeof(block_sector_t));
   }
   else {
     cache_read (id->doubleind, &buffer, 128, 0);
@@ -136,27 +134,49 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
   }
   i = 0;
   while (i<128){
-    if ((size <= 123 * 512 + 512 * i) && buffer[i] != 0) {
+    if ((size <= (123 + 128) * 512 + 512 * i * 128) && buffer[i] != 0) {
       free_map_release(buffer[i],BLOCK_SECTOR_SIZE);
       buffer[i] = 0;
     }
-    if ((size > (123 + i) * 512) && buffer[i] == 0) {
+    if ((size <= (123 + 128) * 512 + 512 * i * 128) && buffer[i] == 0) {
       if (free_map_allocate(1, &sector)==0){
         inode_resize(id, id->length, origsector);
         return false;
       }
       buffer[i] = sector;
+      bufferSector = sector;
+
+      //buffer to contain the actual pages of data 
+      block_sector_t buffer2[128];
+      int j = 0;
+      while (j<128){
+        //iterating for 128 pointers again
+        if ((size <= (123 + 128) * 512 + 512 * i * 128 + j * 512) && buffer[i] != 0){
+          free_map_release(buffer2[j], BLOCK_SECTOR_SIZE);
+          buffer2[j] = 0;
+        }
+
+        if ((size > (123 + 128) * 512 + 512 * i * 128 + j * 512) && buffer[i] != 0) {
+          if (free_map_allocate(1, &sector) == 0){
+            inode_resize(id, id->length, origsector);
+            return false;
+          }
+          buffer2[j] = sector;
+        }
+        j++;
+      }
+      cache_write(bufferSector, &buffer2, sizeof(buffer2), 0);
     }
     i++;
   }
-  cache_write(id->indirect, &buffer, sizeof(buffer), 0);
+  cache_write(indirectaddr, &buffer, sizeof(buffer), 0);
   //block_write(id->indirect, buffer);
   ofs = sizeof(block_sector_t);
   cache_write(origsector, &size, sizeof(size),ofs);
 
 
 
-*/
+
 
   return true;
 }
@@ -187,7 +207,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
     cache_read (data.indirect, &indirect, 128, 0);
     return indirect[index];
   }
-  /*if (pos<(512*123)+(512*512/4)+(128*128*512)){
+  if (pos<(512*123)+(512*512/4)+(128*128*512)){
     //printf("big");
     int index1 = (int)(double)(int)((pos-(512*123)-(512*512/4))/(512*128));
     int index2 = (int)(double)(int)((pos-(512*123)-(512*512/4)-(index1*512*128))/512);
@@ -196,7 +216,7 @@ byte_to_sector (const struct inode *inode, off_t pos)
     block_sector_t finalind[128];
     cache_read (doubleind[index1], &finalind, 128, 0);
     return finalind[index2];
-  }*/
+  }
   //out of bounds of file
 
   return -1;
