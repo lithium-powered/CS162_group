@@ -45,7 +45,7 @@ struct inode
 
 
 bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) {
-  //printf("resizing %d",size);
+  //printf("\n******************resizing %d\n",size);
   block_sector_t indirectaddr = id->indirect;
   block_sector_t bufferSector;
   int j = 0;
@@ -74,12 +74,14 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
     i++;
   }
 
-
   if (id->indirect == 0 && size <= 123 * 512) {
-      ofs = sizeof(block_sector_t);
-  cache_write(origsector, &size, sizeof(size),ofs);
+    ofs = sizeof(block_sector_t);
+    cache_write(origsector, &size, sizeof(size),ofs);
     return true;
   }
+
+  //printf("************Trying to get to indirect\n");
+
   block_sector_t buffer[128];
   if (id->indirect == 0) {
     memset(buffer, 0, 512);
@@ -484,8 +486,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   struct inode_disk data;
   cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
   
-  if (offset>=data.length){
-    inode_resize(&data,offset,inode->sector);
+  if (size + offset>data.length){
+    inode_resize(&data,offset + size,inode->sector);
   }
 
 
@@ -503,7 +505,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
       int min_left = inode_left < sector_left ? inode_left : sector_left;
 
       /* Number of bytes to actually write into this sector. */
-      int chunk_size = size < min_left ? size : min_left;
+      int chunk_size = size;
+      //int chunk_size = size < min_left ? size : min_left;
       if (chunk_size <= 0)
         break;
 
