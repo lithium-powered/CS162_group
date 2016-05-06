@@ -484,8 +484,8 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   struct inode_disk data;
   cache_read (inode->sector, &data, BLOCK_SECTOR_SIZE, 0);
   
-  if (offset>=data.length){
-    inode_resize(&data,offset,inode->sector);
+  if (offset + size>=data.length){
+    inode_resize(&data,offset + size,inode->sector);
   }
 
 
