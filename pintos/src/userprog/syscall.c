@@ -12,6 +12,9 @@
 #include "threads/malloc.h"
 #include "devices/input.h"
 
+#include "filesys/inode.h"
+#include "userprog/process.h"
+
 
 //This is the node for the children linked list that each parent thread stores
 
@@ -41,10 +44,20 @@ void seek (int fd, unsigned position);
 unsigned tell (int fd);
 void close (int fd);
 
+struct fd_elem* get_fd_elem_from_fd(int fd);
+bool chdir (const char* dir);
+bool mkdir (const char* dir);
+bool readdir (int fd, char* name);
+bool isdir (int fd);
+int inumber (int fd); 
+
 struct fd_elem{ //struct for multiple open/closes
     int fd;
     struct file *file;
     struct list_elem elem;
+
+    struct dir *dir;
+    bool is_dir;
 };
 
 
@@ -165,6 +178,34 @@ if (args[0] == SYS_EXEC){
     check_args(f,1);
     close(args[1]);
   }
+
+  if (args[0] == SYS_CHDIR){
+    check_args(f,1);
+    args[1] = ptr_check((const void *) args[1]);
+    f->eax = chdir((const char*) args[1]);
+  }
+
+  if (args[0] == SYS_MKDIR){
+    check_args(f,1);
+    args[1] = ptr_check((const void *) args[1]);
+    f->eax = mkdir((const char*) args[1]);
+  }
+
+  if (args[0] == SYS_READDIR){
+    check_args(f,2);
+    args[2] = ptr_check((const void *) args[2]);
+    f->eax = readdir(args[1], (char*) args[2]);
+  }
+
+  if (args[0] == SYS_ISDIR){
+    check_args(f,1);
+    f->eax = isdir(args[1]);
+  }
+
+  if (args[0] == SYS_INUMBER){
+    check_args(f,2);
+    f->eax = inumber(args[1]);
+  }
   
 }
 
@@ -204,6 +245,18 @@ struct file* get_file_from_fd(int fd){
     return NULL;
 }
 
+struct fd_elem* get_fd_elem_from_fd(int fd){
+    struct thread *t = thread_current();
+    struct list_elem *i;
+    for (i = list_begin(&t->fd_list); i != list_end(&t->fd_list); i = list_next(i)){
+        struct fd_elem *fde = list_entry(i, struct fd_elem, elem);
+        if (fd == fde->fd){
+            return fde;
+        }
+    }
+    return NULL;
+}
+
 //Exit if a pointer or argument check fails
 void exit(int status){
     struct thread *t = thread_current();
@@ -219,7 +272,7 @@ void exit(int status){
 //Create a new file
 bool create (const char *file, unsigned initial_size) {
     
-    bool toReturn = filesys_create(file, initial_size);
+    bool toReturn = filesys_create(file, initial_size, false);
     
     return toReturn;
 }
@@ -237,6 +290,7 @@ int open (const char *file) {
     
     struct file *f = filesys_open(file);
     if (f){
+
         struct thread *t = thread_current();
         struct fd_elem *fde = (struct fd_elem*)malloc(sizeof(struct fd_elem));
         if (!fde){ //failed
@@ -245,11 +299,15 @@ int open (const char *file) {
             return -1;
         }
         fde->fd = t->fd;
-        fde->file = f;
+        if (!inode_is_dir(file_get_inode(f))){
+          fde->file = f;
+        }else{
+          fde->dir = (struct dir *) f;
+        }
+
         t->fd = t->fd + 1; //open-twice test
         list_push_back(&t->fd_list, &fde->elem);
 
-        
         return fde->fd;
 
     }else{
@@ -362,3 +420,59 @@ void close (int fd) {
     return;
 }
 
+bool chdir (const char* dir)
+{
+  return filesys_chdir(dir);
+}
+
+bool mkdir (const char* dir)
+{
+  return filesys_create(dir, 0, true);
+}
+
+bool readdir (int fd, char* name)
+{
+  struct fd_elem *f = get_fd_elem_from_fd(fd);
+  if (!f)
+    {
+      return false;
+    }
+  if (!f->is_dir)
+    {
+      return false;
+    }
+  if (!dir_readdir(f->dir, name))
+    {
+      return false;
+    }
+  return true;
+}
+
+bool isdir (int fd)
+{
+  struct fd_elem *f = get_fd_elem_from_fd(fd);
+  if (!f)
+    {
+      return -1;
+    }
+  return f->is_dir;
+}
+
+int inumber (int fd)
+{
+  struct fd_elem *f = get_fd_elem_from_fd(fd);
+  if (!f)
+    {
+      return -1;
+    }
+  block_sector_t inumber;
+  if (f->is_dir)
+    {
+      inumber = inode_get_inumber(dir_get_inode(f->dir));
+    }
+  else
+    {
+      inumber = inode_get_inumber(file_get_inode(f->file));
+    }
+  return inumber;
+}

@@ -26,7 +26,7 @@ struct dir_entry
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -156,6 +156,9 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   if (lookup (dir, name, NULL, NULL))
     goto done;
 
+  if (inode_add_parent(dir_get_inode(dir), inode_sector) == false){
+    goto done;
+  }
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
      current end-of-file.
@@ -172,12 +175,29 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
+  success = true;
+  // if (success){
+  //   printf("AlwaysHere");
+  // }
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
+ // if (!success){
+ //    printf("BUTICHANGED");
+ //  }
   return success;
 }
+bool dir_is_use(struct inode *inode){
+  struct dir_entry e;
+  size_t ofs;
 
+  for (ofs = 0; inode_read_at (inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e){
+    if (e.in_use){
+      return true;
+    }
+  }
+  return false;
+}
 /* Removes any entry for NAME in DIR.
    Returns true if successful, false on failure,
    which occurs only if there is no file with the given NAME. */
@@ -201,6 +221,9 @@ dir_remove (struct dir *dir, const char *name)
   if (inode == NULL)
     goto done;
 
+  if (inode_is_dir(inode) && dir_is_use(inode)){
+    goto done;
+  }
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
@@ -222,15 +245,38 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-
+  lock_inode(dir_get_inode(dir));
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
       if (e.in_use)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
+          lock_release(dir_get_inode(dir));
           return true;
         } 
+    }
+  lock_release(dir_get_inode(dir));
+  return false;
+}
+
+bool dir_parent(struct dir *dir, struct inode **inode){
+  *inode = inode_open(inode_get_parent(dir_get_inode(dir)));
+  if (*inode == NULL){
+    return false;
+  }
+  return true;
+}
+
+bool dir_is_root (struct dir* dir)
+{
+  if (!dir)
+    {
+      return false;
+    }
+  if (inode_get_inumber(dir_get_inode(dir)) == ROOT_DIR_SECTOR)
+    {
+      return true;
     }
   return false;
 }

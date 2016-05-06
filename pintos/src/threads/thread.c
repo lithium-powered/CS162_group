@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "filesys/directory.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -110,6 +111,9 @@ thread_init (void)
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
 
+  //P3T3
+  initial_thread->cur_dir = NULL;
+
   //Task 2
   list_init(&initial_thread->child_list); //initialize child list
   initial_thread->parent = thread_current(); //set child's parent to current thread's tid
@@ -196,13 +200,21 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
+
+  struct thread *cur_t = thread_current();
   //Task 2
   list_init(&t->child_list); //initialize child list
 
-  t->parent = thread_current(); //set child's parent to current thread's tid
+  t->parent = cur_t; //set child's parent to current thread's tid
   t->node = c; //set child's node pointer to node in parent's linked list of children
   t->exec_sema = s; //set child's semaphore pointer to the loading semaphore it shares with its parent
 
+  //P3T3
+  if (cur_t->cur_dir){
+    t->cur_dir = dir_reopen(cur_t->cur_dir);
+  }else{
+    t->cur_dir = NULL;
+  }
   
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);

@@ -130,6 +130,11 @@ start_process (void *file_name_)
   if (!success){
     thread_exit (-1);
   }
+  struct thread *cur_t = thread_current();
+  if (!cur_t->cur_dir){
+    cur_t->cur_dir = dir_open_root();
+  }
+
   sema_up(thread_current()->exec_sema);
 
   /* Start the user process by simulating a return from an

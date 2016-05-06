@@ -100,6 +100,9 @@ struct thread
     struct child *node;
     struct semaphore* exec_sema;
 
+    //P3T3
+    struct dir *cur_dir;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
