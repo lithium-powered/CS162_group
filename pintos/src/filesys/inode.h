@@ -15,12 +15,11 @@ struct inode_disk
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    //uint32_t unused[125];               /* Not used. */
-    block_sector_t direct[121];         
-    block_sector_t indirect;
-    block_sector_t doubleind;
-    bool is_dir;
-    block_sector_t parent;
+    block_sector_t direct[121];   /*Direct array of memory space*/         
+    block_sector_t indirect;      /*Pointer to a page of addresses (singly indirect)*/
+    block_sector_t doubleind;     /*Pointer to a page of pages of addresses (doubly indirect)*/
+    bool is_dir;                /*True if this inode_disk represents a directory*/
+    block_sector_t parent;      /*Parent directory*/
   };
 
 /* In-memory inode. */
@@ -31,8 +30,8 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    bool is_dir;
-    block_sector_t parent;
+    bool is_dir;                      /*True if this inode represents a directory*/
+    block_sector_t parent;            /*Parent directory*/
     struct lock inode_lock;
   };
 
@@ -46,7 +45,6 @@ void inode_close (struct inode *);
 void inode_remove (struct inode *);
 off_t inode_read_at (struct inode *, void *, off_t size, off_t offset);
 off_t inode_write_at (struct inode *inode, const void *, off_t size, off_t offset); 
-//off_t inode_write_at (struct inode *, const void *, off_t size, off_t offset);
 void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
 off_t inode_length ( struct inode *);
@@ -56,18 +54,18 @@ block_sector_t inode_get_parent( struct inode *);
 bool inode_add_parent(block_sector_t parent, block_sector_t child);
 void lock_inode( struct inode *inode);
 void lock_release_inode( struct inode *inode);
-/* Added */
+
 #define CACHE_SIZE 64
 #define CLOCK_CHANCES 3
 
-/* struct of an element inside the cache */
+/* Struct of an element inside the cache */
 struct cache_elem
   {
     block_sector_t sector;          /* Sector number of disk location */
     bool dirty;                     /* True if dirty block, false o/w */
     bool empty;						/* True if slot does not contain block */
     uint32_t chances;				/* Chances used for clock alg */
-    char data[BLOCK_SECTOR_SIZE];   /* block data. */
+    char data[BLOCK_SECTOR_SIZE];   /* Block data. */
     struct lock lock;				/* Lock on the cache element */
   };
 
@@ -79,10 +77,10 @@ void cache_write(block_sector_t, const void *buffer, int, int);
 int next_free_cache_slot(void);
 bool inode_resize(struct inode_disk *, off_t, block_sector_t);
 
-/* Added */
+/*List element for the cache*/
 struct cache_elem *cache[CACHE_SIZE];
+/*For clock-based cache replacement algorithm*/
 uint32_t clock_hand;
 
- /* ***** */
 
 #endif /* filesys/inode.h */

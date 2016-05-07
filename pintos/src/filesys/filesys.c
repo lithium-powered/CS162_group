@@ -44,14 +44,16 @@ filesys_init (bool format)
 void
 filesys_done (void) 
 {
+  //Write everything in the cache that is still dirty back to disk
   int i;
   for(i = 0; i < CACHE_SIZE; i++){
     if(!cache[i]->empty && (cache[i]->dirty)){
-      //do we need to do a lock check? in case of write?
       block_write (fs_device, cache[i]->sector, cache[i]->data);
+      //Free the cache elems
       free(cache[i]);
     }
   } 
+  //Close the free map
   free_map_close ();
 }
 
@@ -65,7 +67,6 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
   block_sector_t inode_sector = 0;
   struct dir *dir = containing_dir(name);
   char* file_name = get_name(name);
-  //printf(name);
   bool success = false;
   if (strcmp(file_name, ".") != 0 && strcmp(file_name, "..") != 0){
       success = (dir != NULL
@@ -185,7 +186,7 @@ struct dir* containing_dir (const char* path)
         }
       }
 
-      //open next directory
+      //Open next directory
       if (inode_is_dir(inode)){
         dir_close(dir);
         dir = dir_open(inode);
@@ -209,7 +210,7 @@ bool filesys_chdir (const char* name)
 
   if (dir != NULL){
       if (strcmp(file_name, "..") == 0){
-        //check parent
+        //Check parent
         if (!dir_parent(dir, &inode)){
             free(file_name);
             return false;

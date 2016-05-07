@@ -365,7 +365,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL){
-    //printf("pagedir failed");
     goto done;
   }
   process_activate ();
@@ -376,7 +375,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   argSize = 0;
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL){
-    //printf("palloc failed");
     goto done;
   }
   strlcpy (fn_copy, file_name, PGSIZE);

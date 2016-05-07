@@ -429,16 +429,19 @@ void close (int fd) {
     return;
 }
 
+//Change the current working directory to dir
 bool chdir (const char* dir)
 {
   return filesys_chdir(dir);
 }
 
+//Create a directory
 bool mkdir (const char* dir)
 {
   return filesys_create(dir, sizeof(struct inode), true);
 }
 
+//Read a directory from int fd
 bool readdir (int fd, char* name)
 {
   struct fd_elem *f = get_fd_elem_from_fd(fd);
@@ -452,6 +455,7 @@ bool readdir (int fd, char* name)
   return false;
 }
 
+//Returns true if fd argument represents a directory
 bool isdir (int fd)
 {
   struct fd_elem *f = get_fd_elem_from_fd(fd);
@@ -462,6 +466,7 @@ bool isdir (int fd)
   return f->is_dir;
 }
 
+//Returns inode number associated with inode associated with fd
 int inumber (int fd)
 {
   struct fd_elem *f = get_fd_elem_from_fd(fd);

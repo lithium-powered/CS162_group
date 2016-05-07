@@ -176,17 +176,12 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = true;
-  // if (success){
-  //   printf("AlwaysHere");
-  // }
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
- // if (!success){
- //    printf("BUTICHANGED");
- //  }
   return success;
 }
+
 bool dir_is_use(struct inode *inode){
   struct dir_entry e;
   size_t ofs;
@@ -198,6 +193,7 @@ bool dir_is_use(struct inode *inode){
   }
   return false;
 }
+
 /* Removes any entry for NAME in DIR.
    Returns true if successful, false on failure,
    which occurs only if there is no file with the given NAME. */
