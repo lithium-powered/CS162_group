@@ -14,6 +14,7 @@
 
 #include "filesys/inode.h"
 #include "userprog/process.h"
+#include "filesys/directory.h"
 
 
 //This is the node for the children linked list that each parent thread stores
@@ -301,8 +302,10 @@ int open (const char *file) {
         fde->fd = t->fd;
         if (!inode_is_dir(file_get_inode(f))){
           fde->file = f;
+          fde->is_dir = false;
         }else{
           fde->dir = (struct dir *) f;
+          fde->is_dir = true;
         }
 
         t->fd = t->fd + 1; //open-twice test
@@ -355,15 +358,17 @@ int read (int fd, void *buffer, unsigned size) {
 
 //Write to the file
 int write (int fd, const void *buffer, unsigned size) {
-    
     if (fd == STDOUT_FILENO){ //edge case to STDOUT
         putbuf(buffer, size);
         
         return size;
     }
-    struct file *f = get_file_from_fd(fd);
+    struct fd_elem *f = get_fd_elem_from_fd(fd);
     if (f){
-        int toReturn = file_write(f,buffer,size);
+        if (f->is_dir){
+          return -1;
+        }
+        int toReturn = file_write(f->file,buffer,size);
         
         return toReturn;
     }else{
@@ -408,8 +413,12 @@ void close (int fd) {
     for (i = list_begin(&t->fd_list); i != list_end(&t->fd_list); i = list_next(i)){
         struct fd_elem *fde = list_entry(i, struct fd_elem, elem);
         if (fde && fd == fde->fd){
-            if (fde->file){
-                file_close(fde->file);
+            if (fde->is_dir){
+              if (fde->dir){
+                dir_close(fde->dir);
+              }
+            }else if (fde->file){
+              file_close(fde->file);
             }
             list_remove(&fde->elem);
             free(fde);
@@ -427,25 +436,20 @@ bool chdir (const char* dir)
 
 bool mkdir (const char* dir)
 {
-  return filesys_create(dir, 0, true);
+  return filesys_create(dir, sizeof(struct inode), true);
 }
 
 bool readdir (int fd, char* name)
 {
   struct fd_elem *f = get_fd_elem_from_fd(fd);
-  if (!f)
-    {
-      return false;
+  if (f){
+    if (f->is_dir){
+      if (dir_readdir(f->dir, name)){
+        return true;
+      }
     }
-  if (!f->is_dir)
-    {
-      return false;
-    }
-  if (!dir_readdir(f->dir, name))
-    {
-      return false;
-    }
-  return true;
+  }
+  return false;
 }
 
 bool isdir (int fd)

@@ -203,8 +203,6 @@ struct dir* containing_dir (const char* path)
 
 bool filesys_chdir (const char* name)
 {
-
-
   struct dir* dir = containing_dir(name);
   char* file_name = get_name(name);
   struct inode *inode = NULL;
@@ -217,7 +215,7 @@ bool filesys_chdir (const char* name)
             return false;
           }
       }
-      else if (strlen(file_name) == 0 && (dir_is_root(dir)) || strcmp(file_name, ".") == 0){
+      else if ((strlen(file_name) == 0 && (dir_is_root(dir))) || (strcmp(file_name, ".") == 0)){
         thread_current()->cur_dir = dir;
         free(file_name);
         return true;

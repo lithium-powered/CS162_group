@@ -156,7 +156,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   if (lookup (dir, name, NULL, NULL))
     goto done;
 
-  if (inode_add_parent(dir_get_inode(dir), inode_sector) == false){
+  if (inode_add_parent(dir_get_inode(dir)->sector, inode_sector) == false){
     goto done;
   }
   /* Set OFS to offset of free slot.
@@ -251,12 +251,12 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
       dir->pos += sizeof e;
       if (e.in_use)
         {
-          strlcpy (name, e.name, NAME_MAX + 1);
-          lock_release(dir_get_inode(dir));
+          strlcpy (name, e.name, 14 + 1);
+          lock_release_inode(dir_get_inode(dir));
           return true;
         } 
     }
-  lock_release(dir_get_inode(dir));
+  lock_release_inode(dir_get_inode(dir));
   return false;
 }
 

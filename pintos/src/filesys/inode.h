@@ -8,11 +8,35 @@
 
 struct bitmap;
 
+struct inode_disk
+  {
+    block_sector_t start;               /* First data sector. */
+    off_t length;                       /* File size in bytes. */
+    unsigned magic;                     /* Magic number. */
+    uint32_t unused[123];               /* Not used. */
+    bool is_dir;
+    block_sector_t parent;
+  };
+
+struct inode 
+  {
+    struct list_elem elem;              /* Element in inode list. */
+    block_sector_t sector;              /* Sector number of disk location. */
+    int open_cnt;                       /* Number of openers. */
+    bool removed;                       /* True if deleted, false otherwise. */
+    int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
+    struct inode_disk data;
+    bool is_dir;
+    block_sector_t parent;
+    struct lock inode_lock;
+  };
+
+
 void inode_init (void);
 bool inode_create (block_sector_t, off_t, bool);
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
-block_sector_t inode_get_inumber (const struct inode *);
+block_sector_t inode_get_inumber ( struct inode *);
 void inode_close (struct inode *);
 void inode_remove (struct inode *);
 off_t inode_read_at (struct inode *, void *, off_t size, off_t offset);
@@ -20,13 +44,13 @@ off_t inode_write_at (struct inode *inode, const void *, off_t size, off_t offse
 //off_t inode_write_at (struct inode *, const void *, off_t size, off_t offset);
 void inode_deny_write (struct inode *);
 void inode_allow_write (struct inode *);
-off_t inode_length (const struct inode *);
+off_t inode_length ( struct inode *);
 
-bool inode_is_dir (const struct inode *);
-block_sector_t inode_get_parent(const struct inode *);
+bool inode_is_dir ( struct inode *);
+block_sector_t inode_get_parent( struct inode *);
 bool inode_add_parent(block_sector_t parent, block_sector_t child);
-void lock_inode(const struct inode *inode);
-void lock_release_inode(const struct inode *inode);
+void lock_inode( struct inode *inode);
+void lock_release_inode( struct inode *inode);
 /* Added */
 #define CACHE_SIZE 64
 #define CLOCK_CHANCES 3
