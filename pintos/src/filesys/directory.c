@@ -245,18 +245,15 @@ bool
 dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
 {
   struct dir_entry e;
-  lock_inode(dir_get_inode(dir));
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
       if (e.in_use)
         {
           strlcpy (name, e.name, 14 + 1);
-          lock_release_inode(dir_get_inode(dir));
           return true;
         } 
     }
-  lock_release_inode(dir_get_inode(dir));
   return false;
 }
 
