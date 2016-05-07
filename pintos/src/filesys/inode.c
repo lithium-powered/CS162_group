@@ -30,6 +30,11 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
   block_sector_t sector;
   off_t ofs;
   block_sector_t writer;
+
+  int *zero = malloc(BLOCK_SECTOR_SIZE);
+  memset(zero, 0, 512);
+
+
   int i = 0;
   while (i<121){
     if (size <= 512 * i && id->direct[i] != 0) {
@@ -37,31 +42,43 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
       writer = origsector;
       ofs = sizeof(block_sector_t)+sizeof(off_t)+sizeof(unsigned)+i*sizeof(block_sector_t);
       block_sector_t temp = 0;
+      //write 0 into the direct array space we just cleared
       cache_write(writer, &temp, sizeof(int), ofs);
       //id->direct[i] = 0;
     }
     if (size > 512 * i && id->direct[i] == 0) {
       if (free_map_allocate(1,&sector)==0){
         inode_resize(id, id->length, origsector);
+        free(zero);
         return false;        
       }
       writer = origsector;
       ofs = sizeof(block_sector_t)+sizeof(off_t)+sizeof(unsigned)+i*sizeof(block_sector_t);
-      cache_write(writer, &sector, sizeof(sector), ofs);
+      //write newly allocated address to direct array
+      cache_write(writer, &sector, sizeof(block_sector_t), ofs);
+
+      //zero out mem
+      cache_write(sector,zero,BLOCK_SECTOR_SIZE,0);
     }
     i++;
+  }
+
+  //free(zero);
+
+
+
+  //done
+  if (id->indirect == 0 && size <= 121 * 512) {
+    ofs = sizeof(block_sector_t);
+    cache_write(origsector, &size, sizeof(block_sector_t),ofs);
+    free(zero);
+    return true;
   }
 
 
 
 
   block_sector_t indirectaddr = id->indirect;
-  if (id->indirect == 0 && size <= 121 * 512) {
-    ofs = sizeof(block_sector_t);
-    cache_write(origsector, &size, sizeof(size),ofs);
-    return true;
-  }
-
   block_sector_t *buffer = malloc(BLOCK_SECTOR_SIZE);
 
   if (id->indirect == 0) {
@@ -69,10 +86,12 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
     if (free_map_allocate(1,&sector)==0){
       inode_resize(id, id->length, origsector);
       free(buffer);
+      free(zero);
       return false;
     }
     writer = origsector;
     indirectaddr = sector;
+    //write the new addr we just allocated for the indirect ptr
     ofs = sizeof(block_sector_t)+sizeof(off_t)+sizeof(unsigned)+121*sizeof(block_sector_t);
     cache_write(writer, &sector, sizeof(sector), ofs);
   }
@@ -90,8 +109,11 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
       if (free_map_allocate(1, &sector)==0){
         inode_resize(id, id->length, origsector);
         free(buffer);
+        free(zero);
         return false;
       }
+      //zero out mem
+      cache_write(sector,zero,BLOCK_SECTOR_SIZE,0);
       buffer[i] = sector;
     }
     i++;
@@ -108,48 +130,63 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
 
 
 //NERISSA
-  indirectaddr = id->doubleind;
+
+  //done
   if (id->doubleind == 0 && size <= 121 * 512 + 512 * 512 / 4) {
     ofs = sizeof(block_sector_t);
-    cache_write(origsector, &size, sizeof(size),ofs);
+    cache_write(origsector, &size, sizeof(block_sector_t),ofs);
+    free(zero);
     free(buffer);
     return true;
   }
 
+  indirectaddr = id->doubleind;
   if (id->doubleind == 0) {
     memset(buffer, 0, 512);
     if (free_map_allocate(1,&sector)==0){
       inode_resize(id, id->length, origsector);
+      free(zero);
       free(buffer);
       return false;
     }
+    //write newly allocated doublind val
     writer = origsector;
     indirectaddr = sector;
     ofs = sizeof(block_sector_t) + sizeof(off_t)+sizeof(unsigned)+121*sizeof(block_sector_t) + sizeof(block_sector_t);
     cache_write(writer, &sector, sizeof(sector), ofs);
+    //zero out mem
+    cache_write(sector,zero,BLOCK_SECTOR_SIZE,0);
   }
   else {
     cache_read (id->doubleind, buffer, BLOCK_SECTOR_SIZE, 0);
     //block_read(id->indirect, buffer);
   }
+
+
   i = 0;
   //block_sector_t bufferSector;
   while (i<128){
+    //shrinking
     if ((size <= (121 + 128) * 512 + 512 * i * 128) && buffer[i] != 0) {
       int t = 0;
       block_sector_t *buffer2 = malloc(BLOCK_SECTOR_SIZE);
+      //get the page of pointers for buffer[i]
       cache_read(buffer[i],buffer2,BLOCK_SECTOR_SIZE,0);
+      //free all of its children
       while (t<128){
-        free_map_release(buffer2[t],1);
-        buffer2[t] = 0;
+        if (buffer2[t]!=0){
+          free_map_release(buffer2[t],1);
+          buffer2[t] = 0;
+        }
         t++;
       }
       free(buffer2);
+      //free the parent
       free_map_release(buffer[i],1);
       buffer[i] = 0;
     }
+    //check for partially filled block
     if ((size > (121 + 128) * 512 + 512 * i * 128) && buffer[i] != 0){
-      //check partially filled block
       int t = 0;
       block_sector_t *currbuf = malloc(BLOCK_SECTOR_SIZE);
       cache_read(buffer[i],currbuf,BLOCK_SECTOR_SIZE,0);
@@ -158,9 +195,12 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
           if (free_map_allocate(1, &sector) == 0){
             inode_resize(id, id->length, origsector);
             free(currbuf);
+            free(zero);
             free(buffer);
             return false;
           }
+          //zero out mem
+          cache_write(sector,zero,BLOCK_SECTOR_SIZE,0);
           currbuf[t] = sector;
         }
         t++;
@@ -172,6 +212,7 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
       if (free_map_allocate(1, &sector)==0){
         inode_resize(id, id->length, origsector);
         free(buffer);
+        free(zero);
         return false;
       }
       buffer[i] = sector;
@@ -191,6 +232,7 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
             inode_resize(id, id->length, origsector);
             free(buffer2);
             free(buffer);
+            free(zero);
             return false;
           }
           buffer2[j] = sector;
@@ -207,11 +249,9 @@ bool inode_resize(struct inode_disk *id, off_t size, block_sector_t origsector) 
   cache_write(indirectaddr, buffer, BLOCK_SECTOR_SIZE, 0);
   //block_write(id->indirect, buffer);
   ofs = sizeof(block_sector_t);
-  cache_write(origsector, &size, sizeof(size),ofs);
+  cache_write(origsector, &size, sizeof(block_sector_t),ofs);
   free(buffer);
-
-
-
+  free(zero);
 
   return true;
 }
@@ -351,6 +391,7 @@ inode_create (block_sector_t sector, off_t length, bool is_dir)
       }
       free (disk_inode);
     }
+
   return success;
 }
 
@@ -459,10 +500,14 @@ inode_remove (struct inode *inode)
 off_t
 inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset) 
 {
+
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
+  
+  struct inode_disk *data = malloc(sizeof(struct inode_disk));
+  cache_read (inode->sector, data, BLOCK_SECTOR_SIZE, 0);
   //uint8_t *bounce = NULL;
-  while (size > 0) 
+  while (size > 0 && offset<data->length) 
     {
       /* Disk sector to read, starting byte offset within sector. */
 
@@ -479,7 +524,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       if (chunk_size <= 0)
         break;
 
-
+      //printf("sectoridx: %"PRDSNu"",sector_idx);
       cache_read(sector_idx, buffer + bytes_read, chunk_size, sector_ofs);
         
       /*
@@ -507,6 +552,7 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
       bytes_read += chunk_size;
     }
   //free(bounce);
+    free(data);
   return bytes_read;
 }
 
@@ -637,12 +683,22 @@ void wipe_cache_elem(struct cache_elem *elem){
 
 /* interface to read from cache first */
 void cache_read(block_sector_t sector, void *buffer, int chunk_size, int sector_ofs){
+  if (!lock_held_by_current_thread(&globalCacheLock)){
+    lock_acquire(&globalCacheLock);
+    if (chunk_size == 78){
+      //printf("read lock acquired by: %d\n",thread_current()->tid);
+    }
+  }
   int i;
   for(i = 0; i < CACHE_SIZE; i++){
     if(!cache[i]->empty && (cache[i]->sector == sector)){
       //do we need to do a lock check? in case of write?
       memcpy (buffer, cache[i]->data + sector_ofs, chunk_size);
       cache[i]->chances = CLOCK_CHANCES;
+      lock_release(&globalCacheLock);
+      if (chunk_size == 78){
+        //printf("read lock released by: %d\n",thread_current()->tid);
+      }
       return;
     }
   }
@@ -659,10 +715,18 @@ void cache_read(block_sector_t sector, void *buffer, int chunk_size, int sector_
   cache_slot->chances = CLOCK_CHANCES;
   block_read(fs_device, sector, cache_slot->data);
   memcpy (buffer, cache_slot->data + sector_ofs, chunk_size);
+  lock_release(&globalCacheLock);
+  if (chunk_size == 78){
+    //printf("read lock released by: %d\n",thread_current()->tid);
+  }
 }
 
 /* interface to write to cache first */
 void cache_write(block_sector_t sector, const void *buffer, int chunk_size, int sector_ofs){
+  if (!lock_held_by_current_thread(&globalCacheLock)){
+    lock_acquire(&globalCacheLock);
+    //printf("write lock acquired by: %d\n",thread_current()->tid);
+  }
   int i;
   for(i = 0; i < CACHE_SIZE; i++){
     if(!cache[i]->empty && (cache[i]->sector == sector)){
@@ -670,6 +734,8 @@ void cache_write(block_sector_t sector, const void *buffer, int chunk_size, int 
       memcpy (cache[i]->data + sector_ofs, buffer, chunk_size);
       cache[i]->dirty = true;
       cache[i]->chances = CLOCK_CHANCES;
+      //printf("write lock released by: %d\n",thread_current()->tid);
+      lock_release(&globalCacheLock);
       return;
     }
   }  
@@ -686,6 +752,8 @@ void cache_write(block_sector_t sector, const void *buffer, int chunk_size, int 
   cache_slot->chances = CLOCK_CHANCES;
   block_read(fs_device, sector, cache_slot->data);
   memcpy (cache_slot->data + sector_ofs, buffer, chunk_size);
+  lock_release(&globalCacheLock);
+  //printf("write lock released by: %d\n",thread_current()->tid);
 }
 
 int next_free_cache_slot(){

@@ -83,7 +83,6 @@ bool inode_resize(struct inode_disk *, off_t, block_sector_t);
 struct cache_elem *cache[CACHE_SIZE];
 uint32_t clock_hand;
 
-
  /* ***** */
 
 #endif /* filesys/inode.h */
