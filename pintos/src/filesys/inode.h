@@ -8,16 +8,22 @@
 
 struct bitmap;
 
+/* On-disk inode.
+   Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk
   {
     block_sector_t start;               /* First data sector. */
     off_t length;                       /* File size in bytes. */
     unsigned magic;                     /* Magic number. */
-    uint32_t unused[123];               /* Not used. */
+    //uint32_t unused[125];               /* Not used. */
+    block_sector_t direct[121];         
+    block_sector_t indirect;
+    block_sector_t doubleind;
     bool is_dir;
     block_sector_t parent;
   };
 
+/* In-memory inode. */
 struct inode 
   {
     struct list_elem elem;              /* Element in inode list. */
@@ -25,7 +31,6 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;
     bool is_dir;
     block_sector_t parent;
     struct lock inode_lock;
@@ -36,7 +41,7 @@ void inode_init (void);
 bool inode_create (block_sector_t, off_t, bool);
 struct inode *inode_open (block_sector_t);
 struct inode *inode_reopen (struct inode *);
-block_sector_t inode_get_inumber ( struct inode *);
+block_sector_t inode_get_inumber (struct inode *);
 void inode_close (struct inode *);
 void inode_remove (struct inode *);
 off_t inode_read_at (struct inode *, void *, off_t size, off_t offset);
@@ -72,6 +77,7 @@ void wipe_cache_elem(struct cache_elem *);
 void cache_read(block_sector_t, void *buffer, int, int);
 void cache_write(block_sector_t, const void *buffer, int, int);
 int next_free_cache_slot(void);
+bool inode_resize(struct inode_disk *, off_t, block_sector_t);
 
 /* Added */
 struct cache_elem *cache[CACHE_SIZE];
